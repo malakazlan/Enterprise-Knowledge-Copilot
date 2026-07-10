@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.types import portable_enum
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 
@@ -28,7 +29,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Stored as a portable VARCHAR + CHECK constraint (not a native PG enum) so
     # migrations stay database-agnostic and adding roles needs no type surgery.
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role", native_enum=False, length=20, create_constraint=True),
+        portable_enum(UserRole, "user_role"),
         default=UserRole.USER,
         nullable=False,
     )
