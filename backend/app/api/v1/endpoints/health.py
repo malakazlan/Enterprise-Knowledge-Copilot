@@ -7,10 +7,12 @@ are added here as those subsystems come online in later phases.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from app import __version__
+from app.api.deps import DbSession
 from app.core.config import settings
 
 router = APIRouter(tags=["health"])
@@ -45,7 +47,16 @@ async def liveness() -> HealthStatus:
 
 
 @router.get("/ready", response_model=ReadinessStatus, summary="Readiness probe")
-async def readiness() -> ReadinessStatus:
+async def readiness(db: DbSession, response: Response) -> ReadinessStatus:
     checks: list[ReadinessCheck] = []
+
+    try:
+        await db.execute(text("SELECT 1"))
+        checks.append(ReadinessCheck(name="database", healthy=True))
+    except Exception as exc:
+        checks.append(ReadinessCheck(name="database", healthy=False, detail=str(exc)))
+
     healthy = all(check.healthy for check in checks)
+    if not healthy:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return ReadinessStatus(status="ok" if healthy else "degraded", checks=checks)
