@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ekc}
       POSTGRES_DB: ${POSTGRES_DB:-ekc}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +21,7 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -42,7 +42,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ekc}:${POSTGRES_PASSWORD:-ekc}@postgres:5432/${POSTGRES_DB:-ekc}
       REDIS_URL: redis://redis:6379/0
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
