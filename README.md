@@ -102,7 +102,7 @@ Local development without Docker is documented in [`docs/development.md`](docs/d
 This project is built in phases. Current progress is tracked in [`docs/roadmap.md`](docs/roadmap.md).
 
 - [x] **Phase 0** — Foundation (service scaffold, config, observability, containerization, CI)
-- [ ] **Phase 1** — Data layer & authentication (models, migrations, JWT/RBAC)
+- [x] **Phase 1** — Data layer & authentication (models, migrations, JWT/RBAC)
 - [ ] **Phase 2** — Ingestion pipeline (parse, OCR, chunk, embed, index)
 - [ ] **Phase 3** — Hybrid retrieval & reranking
 - [ ] **Phase 4** — Grounded generation (citations, confidence, hallucination detection)
