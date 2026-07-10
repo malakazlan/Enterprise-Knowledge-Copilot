@@ -7,6 +7,7 @@ shared connection) so the suite is fully self-contained — no external services
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -15,11 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 import app.models
+from app.api.deps import get_storage
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
+from app.services.ingestion.factory import get_vector_store
+from app.services.storage import LocalFileStorage
 from app.services.users import UserService
 
 
@@ -40,14 +44,22 @@ async def db_session() -> AsyncIterator[AsyncSession]:
     await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _reset_vector_store() -> None:
+    """Isolate the process-wide in-memory vector store between tests."""
+    get_vector_store().clear()  # type: ignore[attr-defined]
+
+
 @pytest.fixture
-def app(db_session: AsyncSession) -> FastAPI:
+def app(db_session: AsyncSession, tmp_path: Path) -> FastAPI:
     application = create_app()
+    storage = LocalFileStorage(str(tmp_path / "storage"))
 
     async def _override_get_db() -> AsyncIterator[AsyncSession]:
         yield db_session
 
     application.dependency_overrides[get_db] = _override_get_db
+    application.dependency_overrides[get_storage] = lambda: storage
     return application
 
 
