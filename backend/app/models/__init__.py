@@ -6,6 +6,23 @@ metadata-driven tooling (Alembic autogenerate, test schema creation) sees them.
 
 from __future__ import annotations
 
+from app.models.document import (
+    Document,
+    DocumentChunk,
+    IngestionJob,
+    IngestionStatus,
+    JobStage,
+    JobStatus,
+)
 from app.models.user import User, UserRole
 
-__all__ = ["User", "UserRole"]
+__all__ = [
+    "Document",
+    "DocumentChunk",
+    "IngestionJob",
+    "IngestionStatus",
+    "JobStage",
+    "JobStatus",
+    "User",
+    "UserRole",
+]
