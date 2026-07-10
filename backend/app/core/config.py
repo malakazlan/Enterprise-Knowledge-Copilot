@@ -53,6 +53,23 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://ekc:ekc@localhost:5432/ekc"
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- Storage ---
+    storage_dir: str = "./storage"
+    max_upload_bytes: int = 50 * 1024 * 1024  # 50 MiB
+
+    # --- Ingestion ---
+    # Provider selection; local/hashing/memory keep the pipeline runnable with
+    # zero external services. Real providers plug in behind the same ports.
+    parser_provider: str = "local"
+    embedder_provider: str = "hashing"
+    vector_store_provider: str = "memory"
+    embedding_dimension: int = 384
+    chunk_size: int = 1200
+    chunk_overlap: int = 150
+    # When true, ingestion runs inline in the request; when false it is enqueued
+    # to Celery. Inline keeps local dev and tests broker-free.
+    ingestion_eager: bool = True
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors(cls, value: object) -> object:
