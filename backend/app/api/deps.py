@@ -14,12 +14,21 @@ from app.core.exceptions import AuthenticationError, PermissionDeniedError
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User, UserRole
+from app.services.ingestion.factory import get_storage as _resolve_storage
+from app.services.storage import ObjectStorage
 from app.services.users import UserService
 
 _bearer_scheme = HTTPBearer(auto_error=False, description="JWT access token")
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 BearerCredentials = Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)]
+
+
+def get_storage() -> ObjectStorage:
+    return _resolve_storage()
+
+
+Storage = Annotated[ObjectStorage, Depends(get_storage)]
 
 
 async def get_current_user(db: DbSession, credentials: BearerCredentials) -> User:
