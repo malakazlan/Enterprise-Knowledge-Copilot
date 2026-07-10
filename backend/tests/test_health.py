@@ -19,7 +19,9 @@ async def test_readiness_returns_ok(client: AsyncClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["checks"] == []
+    names = {check["name"] for check in body["checks"]}
+    assert "database" in names
+    assert all(check["healthy"] for check in body["checks"])
 
 
 async def test_root_returns_service_info(client: AsyncClient) -> None:
