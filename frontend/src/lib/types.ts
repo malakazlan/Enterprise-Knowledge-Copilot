@@ -22,6 +22,7 @@ export interface DocumentRead {
   size_bytes: number;
   checksum: string;
   status: "pending" | "processing" | "completed" | "failed";
+  collection_id: string | null;
   title: string | null;
   page_count: number | null;
   doc_metadata: Record<string, unknown>;
@@ -162,4 +163,18 @@ export interface ThreadMessage {
 
 export interface ThreadDetail extends ThreadRead {
   messages: ThreadMessage[];
+}
+
+export interface CollectionRead {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  document_count: number;
+  member_count: number;
+}
+
+export interface CollectionMemberRead {
+  user_id: string;
+  email: string;
 }

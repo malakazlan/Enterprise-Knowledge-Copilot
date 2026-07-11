@@ -5,6 +5,8 @@ import type {
   ApiKeyCreated,
   ApiKeyRead,
   ChunkRead,
+  CollectionMemberRead,
+  CollectionRead,
   DocumentRead,
   FolderSyncReport,
   ProfileSummary,
@@ -139,10 +141,11 @@ export const me = (): Promise<UserRead> => request<UserRead>("/auth/me");
 export const listDocuments = (): Promise<DocumentRead[]> =>
   request<DocumentRead[]>("/documents?limit=200");
 
-export function uploadDocument(file: File): Promise<DocumentRead> {
+export function uploadDocument(file: File, collectionId?: string | null): Promise<DocumentRead> {
   const form = new FormData();
   form.append("file", file);
-  return request<DocumentRead>("/documents", { method: "POST", form });
+  const suffix = collectionId ? `?collection_id=${collectionId}` : "";
+  return request<DocumentRead>(`/documents${suffix}`, { method: "POST", form });
 }
 
 export const deleteDocument = (id: string): Promise<void> =>
@@ -273,3 +276,29 @@ export async function streamQuery(
   if (!result) throw new ApiError(502, "Stream ended without a result.");
   return result;
 }
+
+// ---- collections ----
+
+export const listCollections = (): Promise<CollectionRead[]> =>
+  request<CollectionRead[]>("/collections");
+
+export const createCollection = (name: string, description: string | null): Promise<CollectionRead> =>
+  request<CollectionRead>("/collections", {
+    method: "POST",
+    json: description ? { name, description } : { name },
+  });
+
+export const deleteCollection = (id: string): Promise<void> =>
+  request<void>(`/collections/${id}`, { method: "DELETE" });
+
+export const listCollectionMembers = (id: string): Promise<CollectionMemberRead[]> =>
+  request<CollectionMemberRead[]>(`/collections/${id}/members`);
+
+export const addCollectionMember = (id: string, email: string): Promise<CollectionMemberRead> =>
+  request<CollectionMemberRead>(`/collections/${id}/members`, {
+    method: "POST",
+    json: { email },
+  });
+
+export const removeCollectionMember = (id: string, userId: string): Promise<void> =>
+  request<void>(`/collections/${id}/members/${userId}`, { method: "DELETE" });
