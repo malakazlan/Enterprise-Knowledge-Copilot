@@ -72,8 +72,8 @@ dev = [
 include = ["app*"]
 
 [tool.setuptools.package-data]
-# Ship profile packs (YAML) inside the wheel/container build.
-"app" = ["**/*.yaml"]
+# Ship profile packs (YAML) and the web console inside the wheel/container build.
+"app" = ["**/*.yaml", "**/*.html"]
 
 [tool.ruff]
 line-length = 100
