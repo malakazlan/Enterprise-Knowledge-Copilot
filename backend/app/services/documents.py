@@ -69,6 +69,14 @@ class DocumentService:
         )
         return result.scalars().all()
 
+    async def list_chunks(self, document_id: uuid.UUID) -> Sequence[DocumentChunk]:
+        result = await self.db.execute(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .order_by(DocumentChunk.chunk_index)
+        )
+        return result.scalars().all()
+
     async def delete(self, document: Document) -> None:
         try:
             await self.storage.delete(document.storage_uri)

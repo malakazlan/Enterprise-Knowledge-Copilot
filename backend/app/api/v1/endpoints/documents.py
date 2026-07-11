@@ -17,7 +17,7 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationAppError
 from app.models.user import UserRole
-from app.schemas.document import DocumentRead, DocumentWithJob, IngestionJobRead
+from app.schemas.document import ChunkRead, DocumentRead, DocumentWithJob, IngestionJobRead
 from app.services.documents import DocumentService
 from app.services.ingestion.factory import get_parser, get_vector_store
 from app.services.ingestion.pipeline import IngestionError, IngestionPipeline
@@ -115,6 +115,21 @@ async def list_document_jobs(
         raise NotFoundError("Document not found.")
     jobs = await service.list_jobs(document_id)
     return [IngestionJobRead.model_validate(job) for job in jobs]
+
+
+@router.get(
+    "/{document_id}/chunks",
+    response_model=list[ChunkRead],
+    summary="List a document's chunks in reading order",
+)
+async def list_document_chunks(
+    db: DbSession, storage: Storage, _principal: CurrentPrincipal, document_id: uuid.UUID
+) -> list[ChunkRead]:
+    service = DocumentService(db, storage)
+    if await service.get(document_id) is None:
+        raise NotFoundError("Document not found.")
+    chunks = await service.list_chunks(document_id)
+    return [ChunkRead.model_validate(chunk) for chunk in chunks]
 
 
 @router.delete(
