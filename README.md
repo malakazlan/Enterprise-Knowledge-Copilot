@@ -2,114 +2,154 @@
 
 # Enterprise Knowledge Copilot
 
-**Production-grade RAG & Document Intelligence for regulated enterprises.**
+**Self-hosted, production-grade agentic RAG.**
+Deploy a domain-tuned, citation-faithful answer engine on your own infrastructure — your documents never leave your servers.
 
-Turn 10,000+ PDFs, contracts, SOPs, and manuals into a trustworthy, cited, auditable answer engine.
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/malakazlan/Enterprise-Knowledge-Copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/malakazlan/Enterprise-Knowledge-Copilot/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
+[![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
+[![Typed](https://img.shields.io/badge/mypy-strict-blue)](backend/pyproject.toml)
+
+[Quickstart](#-quickstart) · [Architecture](#-architecture) · [API tour](#-api-tour) · [Domain profiles](#-domain-profiles) · [Status](#-project-status)
 
 </div>
 
+> ⚠️ **Alpha — under active development.** The API is stabilizing; see [Project status](#-project-status) for what works today.
+
 ---
 
-## Why this exists
+## Why
 
-Enterprises in healthcare, legal, finance, manufacturing, insurance, and government sit on
-mountains of unstructured documents. Employees waste hours hunting through them, and generic
-chatbots hallucinate answers no compliance team will accept.
+Enterprises sit on tens of thousands of PDFs, contracts, SOPs, and manuals. Employees waste hours searching. Generic chatbots hallucinate answers no compliance team will accept — and SaaS RAG means shipping sensitive documents to someone else's cloud.
 
-**Enterprise Knowledge Copilot** is built for the constraints those industries actually have:
+**Enterprise Knowledge Copilot** is the alternative you run yourself:
 
-- **Every answer is cited** down to the document and page, or it is not returned.
-- **Confidence is scored** and low-confidence answers are routed to **human review**.
-- **Hallucinations are detected** by grounding each claim against retrieved evidence.
-- **Everything is auditable** — who asked what, what was retrieved, what was answered.
+| | |
+|---|---|
+| 🔒 **Sovereign by default** | Runs fully on your hardware with local models — zero API keys required. Air-gap friendly. |
+| ☁️ **Cloud-upgradable** | Flip a config switch to use Anthropic, OpenAI, Cohere, or Pinecone. Every provider sits behind a swappable port. |
+| 🎯 **Domain profiles** | Legal, Finance, Healthcare, Government, Manufacturing, Insurance — validated configuration packs that tune chunking, retrieval, and trust thresholds in one click. |
+| 📎 **Grounded or nothing** | Answers cite document **and page**, carry a confidence score, and the system refuses or routes to human review instead of guessing. |
+| 🔌 **API-first** | Clean REST APIs — use it headless as the RAG backend for your own apps, or with the full admin UI. |
+| 🤖 **Agentic setup copilot** *(planned)* | An agent that interviews you, configures the pipeline for your use case, and tunes it against measured quality. |
 
-## Core capabilities
+## 🏗 Architecture
 
-| Area | What it does |
-| --- | --- |
-| **Ingestion** | LlamaParse (primary) → Docling (fallback) → OCR for scans; layout-aware parsing, metadata extraction, semantic chunking |
-| **Retrieval** | Hybrid search — Pinecone dense vectors **+** BM25 sparse lexical, fused with Reciprocal Rank Fusion |
-| **Reranking** | Cross-encoder / Cohere reranking of fused candidates for precision |
-| **Generation** | Grounded answers with inline **source + page citations** |
-| **Trust** | Per-answer **confidence score**, **hallucination detection**, **human review mode** |
-| **Admin** | Dashboard for documents, ingestion jobs, review queue, usage analytics |
-| **Security** | JWT auth, role-based access control (admin / reviewer / user), full audit trail |
-
-## Architecture
-
-```
-                            ┌──────────────────────────────┐
-        React + TS UI  ───► │           FastAPI            │
-   (chat · admin · review)  │   REST + streaming (SSE)     │
-                            └───────────────┬──────────────┘
-                                            │
-              ┌─────────────────────────────┼─────────────────────────────┐
-              ▼                             ▼                             ▼
-      ┌───────────────┐          ┌────────────────────┐         ┌────────────────┐
-      │  Ingestion    │          │     Retrieval      │         │   Generation   │
-      │ parse·OCR·    │          │ dense (Pinecone) + │         │ LLM · cite ·   │
-      │ chunk·extract │          │ sparse (BM25) →RRF │         │ confidence ·   │
-      │  (Celery)     │          │   → rerank         │         │ halluc. check  │
-      └───────┬───────┘          └─────────┬──────────┘         └───────┬────────┘
-              │                            │                            │
-      ┌───────┴──────────┬─────────────────┴───────────┬────────────────┴────────┐
-      ▼                  ▼                             ▼                          ▼
- ┌─────────┐      ┌────────────┐               ┌──────────────┐          ┌──────────────┐
- │ Postgres│      │   Redis    │               │   Pinecone   │          │ Object store │
- │metadata·│      │ cache·queue│               │ vector index │          │  raw files   │
- │audit·RBAC│     │  broker    │               └──────────────┘          └──────────────┘
- └─────────┘      └────────────┘
+```mermaid
+flowchart LR
+    UI["React Admin & Chat UI"] --> API["FastAPI Control Plane<br/>auth · RBAC · documents · query · review"]
+    API --> ING["Ingestion Workers<br/>parse → chunk → embed → index"]
+    API --> RET["Retrieval Engine<br/>hybrid dense + BM25 → RRF → rerank"]
+    API --> GEN["Grounded Generation<br/>citations · confidence · groundedness"]
+    ING --> VS[("Vector Store<br/>Qdrant default · pgvector · Pinecone")]
+    RET --> VS
+    GEN --> LLM["LLM Port<br/>local vLLM/Ollama · Anthropic · OpenAI"]
+    ING --> PG[("PostgreSQL<br/>metadata · jobs · audit")]
+    RET --> PG
+    API --> RD[("Redis<br/>queue · cache")]
+    ING --> OS[("Object Storage<br/>local disk · S3/MinIO")]
 ```
 
-## Tech stack
+Every stage reads its tuning from the **active profile** — a validated configuration pack — and every external provider implements a **port** with a local default adapter. That is what makes the same codebase work air-gapped in a government agency and cloud-connected in a startup.
 
-**Backend** — Python · FastAPI · Pydantic v2 · SQLAlchemy 2.0 (async) · asyncpg · Alembic · Celery
-**Data** — PostgreSQL · Redis · Pinecone
-**AI** — LlamaParse · Docling · provider-abstracted LLM & embeddings · cross-encoder / Cohere reranking
-**Frontend** — React 18 · TypeScript · Vite · Tailwind CSS · shadcn/ui · TanStack Query
-**Ops** — Docker · Docker Compose · GitHub Actions · structlog · Prometheus
+## 🚀 Quickstart
 
-## Repository layout
-
-```
-Enterprise-Knowledge-Copilot/
-├── backend/            FastAPI service, ingestion/retrieval/generation, workers
-├── frontend/           React + TypeScript single-page app
-├── infra/              Docker Compose, provisioning, deployment manifests
-├── docs/               Architecture decision records and guides
-└── .github/            CI/CD workflows
-```
-
-## Quickstart
-
-> Full local stack (API, workers, Postgres, Redis) via Docker Compose.
+Requires Docker + Docker Compose.
 
 ```bash
-# 1. Configure environment
-cp backend/.env.example backend/.env    # then fill in secrets & provider keys
+git clone https://github.com/malakazlan/Enterprise-Knowledge-Copilot.git
+cd Enterprise-Knowledge-Copilot
 
-# 2. Bring up the stack
-make up
-
-# 3. API docs
+make up          # postgres + redis + api
 open http://localhost:8000/docs
 ```
 
-Local development without Docker is documented in [`docs/development.md`](docs/development.md).
+Local development without Docker:
 
-## Status
+```bash
+cd backend
+python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+cp .env.example .env
+uvicorn app.main:app --reload
+```
 
-This project is built in phases. Current progress is tracked in [`docs/roadmap.md`](docs/roadmap.md).
+## 🔌 API tour
 
-- [x] **Phase 0** — Foundation (service scaffold, config, observability, containerization, CI)
-- [x] **Phase 1** — Data layer & authentication (models, migrations, JWT/RBAC)
-- [ ] **Phase 2** — Ingestion pipeline (parse, OCR, chunk, embed, index)
-- [ ] **Phase 3** — Hybrid retrieval & reranking
-- [ ] **Phase 4** — Grounded generation (citations, confidence, hallucination detection)
-- [ ] **Phase 5** — Human review & admin analytics
-- [ ] **Phase 6** — Frontend application
-- [ ] **Phase 7** — Test coverage, observability, documentation
+```bash
+BASE=http://localhost:8000/api/v1
 
-## License
+# 1. Register and log in
+curl -s -X POST $BASE/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"admin@acme.com","password":"a-strong-password"}'
+TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@acme.com","password":"a-strong-password"}' | jq -r .access_token)
 
-[MIT](LICENSE)
+# 2. Upload a document — parsed, chunked, embedded, and indexed
+curl -s -X POST $BASE/documents -H "Authorization: Bearer $TOKEN" \
+  -F "file=@safety-manual.md"
+
+# 3. Browse the built-in domain profiles
+curl -s $BASE/profiles -H "Authorization: Bearer $TOKEN" | jq '.[].name'
+```
+
+Interactive OpenAPI docs at [`/docs`](http://localhost:8000/docs). Search (`/search`) and grounded answers (`/query`) are landing in the current milestone.
+
+## 🎯 Domain profiles
+
+A profile is a **validated configuration pack** — chunking granularity, hybrid-retrieval weights, reranking, temperature, citation strictness, and human-review/refusal thresholds tuned for an industry's risk posture. Ships with seven:
+
+| Profile | Tuned for | Trust posture |
+|---|---|---|
+| `general` | Mixed corporate knowledge bases | Balanced |
+| `legal` | Contracts, case law, compliance | Temp 0 · clause-level chunks · strict refusal |
+| `finance` | Filings, reports, IFRS/GAAP | Temp 0 · exact-match weighted (tickers, codes) |
+| `healthcare` | Clinical guidelines, protocols | **Most conservative** — refuses readily, reviews often |
+| `government` | Regulations, public records | Local-only providers (air-gap) · audit-grade citations |
+| `manufacturing` | Equipment manuals, SOPs | Procedure-step chunks · part-number matching |
+| `insurance` | Policy wordings, claims manuals | Clause-level · exclusion-aware retrieval |
+
+Selecting one requires no RAG expertise — the pack encodes it.
+
+## 📊 Project status
+
+| Milestone | State |
+|---|---|
+| Core platform — JWT auth + RBAC, structured logging, error envelope, Prometheus metrics, Docker, CI | ✅ |
+| Ingestion pipeline — parse → chunk → embed → index, Celery workers, document APIs | ✅ |
+| Domain profiles — strict schema, 7 packs, profiles API | ✅ |
+| Hybrid retrieval — BM25 + dense, RRF fusion, reranking, `/search` | 🔨 in progress |
+| Grounded generation — `/query` with citations, confidence, groundedness checks | ⏳ next |
+| Provider adapters — Docling, LlamaParse, OCR, Qdrant, Pinecone, Anthropic, OpenAI, Cohere | ⏳ |
+| Evaluation harness — golden sets, retrieval & faithfulness metrics | ⏳ |
+| Human review queue, admin dashboard, React UI | ⏳ |
+| Agentic setup copilot (MCP) | ⏳ |
+
+## 🧰 Tech stack
+
+**Backend** Python · FastAPI · Pydantic v2 · SQLAlchemy 2.0 (async) · Alembic · Celery
+**Data** PostgreSQL · Redis · Qdrant (default) / pgvector / Pinecone
+**AI** Provider-abstracted parsers, embedders, rerankers, and LLMs — local-first, cloud-optional
+**Frontend** React 18 · TypeScript · Vite · Tailwind CSS
+**Quality** ruff · mypy (strict) · pytest · GitHub Actions
+
+## 🛠 Development
+
+```bash
+cd backend
+ruff check app tests && ruff format --check app tests   # lint + format
+mypy app                                                # strict type-check
+pytest                                                  # self-contained suite (no services needed)
+```
+
+The test suite runs against in-memory SQLite and temp-dir storage — no external services, no API keys.
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome. Keep commits atomic with one-line conventional messages, and make sure the full quality gate above is green.
+
+## 📄 License
+
+[Apache-2.0](LICENSE)
