@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     vector_store_provider: str = "memory"
     sparse_provider: str = "local-bm25"
     reranker_provider: str = "lexical"
+    # CPU-tier OCR for scanned pages/images ("rapidocr" | "none"). A GPU-tier
+    # VLM OCR adapter (served via vLLM) plugs into the same port later.
+    ocr_provider: str = "rapidocr"
+    ocr_render_scale: float = 3.0  # ~216 dpi page rasterization
+    ocr_min_line_confidence: float = 0.5
     # "extractive" answers by quoting the most relevant retrieved sentences —
     # fully offline. LLM providers (anthropic/openai/ollama) swap in via config.
     llm_provider: str = "extractive"

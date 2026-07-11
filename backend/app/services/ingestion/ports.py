@@ -48,6 +48,29 @@ class DocumentParser(Protocol):
     ) -> ParsedDocument: ...
 
 
+@dataclass(slots=True)
+class OcrResult:
+    text: str
+    # Mean confidence of the lines kept, in [0, 1]. 0.0 when nothing was read.
+    confidence: float
+
+
+@runtime_checkable
+class OcrEngine(Protocol):
+    """Recognizes text on scanned pages and images.
+
+    File-based contract so adapters own their rasterization strategy: the CPU
+    default (RapidOCR) renders locally; a future GPU tier (e.g. a VLM OCR
+    served via vLLM) implements the same two methods against a remote endpoint.
+    Methods are synchronous — callers run them off the event loop.
+    """
+
+    name: str
+
+    def recognize_pdf_page(self, file_path: str, page_index: int) -> OcrResult: ...
+    def recognize_image(self, file_path: str) -> OcrResult: ...
+
+
 @runtime_checkable
 class Embedder(Protocol):
     """Produces dense vector embeddings for text."""
