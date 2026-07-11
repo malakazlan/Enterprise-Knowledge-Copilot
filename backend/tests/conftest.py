@@ -2,9 +2,31 @@
 
 Tests run against an in-memory SQLite database (StaticPool keeps a single
 shared connection) so the suite is fully self-contained — no external services.
+
+The environment overrides below run BEFORE any ``app`` import so the settings
+singleton is built with offline providers, regardless of what a developer's
+local ``.env`` selects (qdrant, openai, ...). Tests must never touch real
+services or spend API credits.
 """
 
 from __future__ import annotations
+
+import os
+
+os.environ.update(
+    {
+        "ENVIRONMENT": "local",
+        "VECTOR_STORE_PROVIDER": "memory",
+        "EMBEDDER_PROVIDER": "hashing",
+        "LLM_PROVIDER": "extractive",
+        "SPARSE_PROVIDER": "local-bm25",
+        "RERANKER_PROVIDER": "lexical",
+        "PARSER_PROVIDER": "local",
+        "OCR_PROVIDER": "rapidocr",
+        "EMBEDDING_DIMENSION": "384",
+        "AUTO_MIGRATE": "false",
+    }
+)
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
