@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     api_keys,
     auth,
     documents,
+    evals,
     health,
     profiles,
     query,
@@ -24,3 +25,4 @@ api_router.include_router(documents.router, prefix="/documents")
 api_router.include_router(profiles.router, prefix="/profiles")
 api_router.include_router(search.router, prefix="/search")
 api_router.include_router(query.router, prefix="/query")
+api_router.include_router(evals.router, prefix="/evals")
