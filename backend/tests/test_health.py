@@ -24,10 +24,21 @@ async def test_readiness_returns_ok(client: AsyncClient) -> None:
     assert all(check["healthy"] for check in body["checks"])
 
 
-async def test_root_returns_service_info(client: AsyncClient) -> None:
+async def test_root_serves_console(client: AsyncClient) -> None:
     resp = await client.get("/")
     assert resp.status_code == 200
-    assert resp.json()["service"]
+    assert resp.headers["content-type"].startswith("text/html")
+    assert "Enterprise Knowledge Copilot" in resp.text
+    # Self-contained console: strict CSP allows nothing external.
+    csp = resp.headers["content-security-policy"]
+    assert "default-src 'none'" in csp
+    assert "connect-src 'self'" in csp
+
+
+async def test_security_headers_on_api_responses(client: AsyncClient) -> None:
+    resp = await client.get("/api/v1/health/live")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["x-frame-options"] == "DENY"
 
 
 async def test_request_id_header_is_returned(client: AsyncClient) -> None:

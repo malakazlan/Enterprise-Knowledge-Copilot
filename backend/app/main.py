@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app import __version__
 from app.api.v1.router import api_router
@@ -14,7 +16,9 @@ from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import render_metrics
-from app.core.middleware import RequestContextMiddleware
+from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
+
+_STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
@@ -39,6 +43,7 @@ def create_app() -> FastAPI:
     )
 
     # CORS is added last so it wraps everything and applies to error responses.
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -53,8 +58,9 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
     @app.get("/", include_in_schema=False)
-    async def root() -> dict[str, str]:
-        return {"service": settings.app_name, "version": __version__, "docs": "/docs"}
+    async def root() -> FileResponse:
+        """Serve the self-contained web console (no build chain, no CDN)."""
+        return FileResponse(_STATIC_DIR / "index.html", media_type="text/html")
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:
