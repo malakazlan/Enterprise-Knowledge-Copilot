@@ -23,6 +23,7 @@ from app.main import create_app
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 from app.services.ingestion.factory import get_vector_store
+from app.services.retrieval.factory import get_sparse_index
 from app.services.storage import LocalFileStorage
 from app.services.users import UserService
 
@@ -45,9 +46,10 @@ async def db_session() -> AsyncIterator[AsyncSession]:
 
 
 @pytest.fixture(autouse=True)
-def _reset_vector_store() -> None:
-    """Isolate the process-wide in-memory vector store between tests."""
+def _reset_retrieval_state() -> None:
+    """Isolate process-wide retrieval singletons between tests."""
     get_vector_store().clear()  # type: ignore[attr-defined]
+    get_sparse_index().invalidate()
 
 
 @pytest.fixture
