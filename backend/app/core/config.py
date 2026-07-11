@@ -73,6 +73,16 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr | None = None
     qdrant_collection: str = "ekc_chunks"
+
+    # --- LLM providers (when llm_provider is anthropic/openai/ollama) ---
+    anthropic_api_key: SecretStr | None = None
+    anthropic_model: str = "claude-opus-4-8"
+    openai_api_key: SecretStr | None = None
+    openai_base_url: str | None = None
+    openai_model: str = "gpt-4o-mini"
+    # Ollama/vLLM/LM Studio expose an OpenAI-compatible endpoint.
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = "llama3.1"
     embedding_dimension: int = 384
     chunk_size: int = 1200
     chunk_overlap: int = 150
