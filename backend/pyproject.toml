@@ -35,6 +35,8 @@ dependencies = [
     # Auth & security
     "pyjwt>=2.9",
     "pwdlib[argon2]>=0.2",
+    # Config & profiles
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -46,10 +48,15 @@ dev = [
     "pytest-cov>=5.0",
     "aiosqlite>=0.20",
     "types-requests",
+    "types-PyYAML",
 ]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+# Ship profile packs (YAML) inside the wheel/container build.
+"app" = ["**/*.yaml"]
 
 [tool.ruff]
 line-length = 100
