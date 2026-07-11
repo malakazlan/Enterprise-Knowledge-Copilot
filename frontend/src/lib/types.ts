@@ -140,3 +140,26 @@ export interface FolderSyncReport {
   skipped_unsupported: number;
   failed: { filename: string; error: string }[];
 }
+
+export interface ThreadRead {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreadMessage {
+  id: string;
+  query: string;
+  answer: string | null;
+  answered: boolean;
+  refusal_reason: string | null;
+  confidence: number;
+  needs_review: boolean;
+  citations: Record<string, unknown>[];
+  created_at: string;
+}
+
+export interface ThreadDetail extends ThreadRead {
+  messages: ThreadMessage[];
+}
