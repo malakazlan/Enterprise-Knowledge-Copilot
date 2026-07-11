@@ -14,6 +14,7 @@ from app.models.document import (
     JobStage,
     JobStatus,
 )
+from app.models.querylog import QueryLog
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "IngestionStatus",
     "JobStage",
     "JobStatus",
+    "QueryLog",
     "User",
     "UserRole",
 ]
