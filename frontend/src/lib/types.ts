@@ -122,3 +122,21 @@ export interface ApiKeyCreated {
   expires_at: string | null;
   created_at: string;
 }
+
+export interface WebhookRead {
+  id: string;
+  url: string;
+  events: string[];
+  is_active: boolean;
+  has_secret: boolean;
+  created_at: string;
+}
+
+export interface FolderSyncReport {
+  path: string;
+  scanned: number;
+  ingested: string[];
+  skipped_existing: number;
+  skipped_unsupported: number;
+  failed: { filename: string; error: string }[];
+}

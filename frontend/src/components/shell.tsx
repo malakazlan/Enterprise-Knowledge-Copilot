@@ -15,6 +15,7 @@ const NAV = [
   { href: "/review", label: "Review queue", icon: "✓" },
   { href: "/insights", label: "Insights", icon: "📈" },
   { href: "/keys", label: "API keys", icon: "🔑" },
+  { href: "/integrations", label: "Integrations", icon: "⚡" },
 ] as const;
 
 const THEME_KEY = "ekc.theme";

@@ -6,10 +6,12 @@ import type {
   ApiKeyRead,
   ChunkRead,
   DocumentRead,
+  FolderSyncReport,
   ProfileSummary,
   QueryResponse,
   ReviewItem,
   TokenPair,
+  WebhookRead,
   UserRead,
 } from "./types";
 
@@ -187,3 +189,24 @@ export const createApiKey = (name: string, role: string): Promise<ApiKeyCreated>
 
 export const revokeApiKey = (id: string): Promise<void> =>
   request<void>(`/api-keys/${id}`, { method: "DELETE" });
+
+// ---- integrations ----
+
+export const listWebhooks = (): Promise<WebhookRead[]> =>
+  request<WebhookRead[]>("/admin/webhooks");
+
+export const createWebhook = (
+  url: string,
+  events: string[],
+  secret: string | null,
+): Promise<WebhookRead> =>
+  request<WebhookRead>("/admin/webhooks", {
+    method: "POST",
+    json: secret ? { url, events, secret } : { url, events },
+  });
+
+export const deleteWebhook = (id: string): Promise<void> =>
+  request<void>(`/admin/webhooks/${id}`, { method: "DELETE" });
+
+export const syncFolder = (path: string): Promise<FolderSyncReport> =>
+  request<FolderSyncReport>("/connectors/folder/sync", { method: "POST", json: { path } });
