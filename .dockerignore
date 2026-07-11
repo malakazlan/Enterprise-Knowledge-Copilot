@@ -1,0 +1,33 @@
+# Build context is the repo root; keep it lean.
+.git/
+.gitignore
+.dockerignore
+docs/
+design/
+data/
+CLAUDE.md
+*.md
+!backend/README.md
+
+# Python
+backend/.venv/
+**/__pycache__/
+**/*.py[cod]
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/htmlcov/
+backend/tests/
+
+# Secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Frontend build artifacts (rebuilt inside the image)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Infra
+infra/

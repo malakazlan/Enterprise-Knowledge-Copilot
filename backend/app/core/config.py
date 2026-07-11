@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # single-node deployments; set false when migrations are run externally
     # (e.g. a deploy job in multi-replica setups).
     auto_migrate: bool = True
+    # Directory of the built web app (Next.js static export). When unset, the
+    # repo-relative frontend/out is used if present; the console is the fallback.
+    frontend_dist: str | None = None
 
     # --- Storage ---
     storage_dir: str = "./storage"

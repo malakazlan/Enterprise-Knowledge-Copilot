@@ -20,8 +20,13 @@ from app.core.metrics import render_metrics
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 
 _STATIC_DIR = Path(__file__).parent / "static"
-# Static export of the Next.js app (frontend/out). Absent in API-only deploys.
-_FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "out"
+
+
+def _frontend_dist() -> Path:
+    """Static export of the Next.js app. Absent in API-only deploys."""
+    if settings.frontend_dist:
+        return Path(settings.frontend_dist)
+    return Path(__file__).resolve().parents[2] / "frontend" / "out"
 
 
 def _run_migrations() -> None:
@@ -96,10 +101,11 @@ def create_app() -> FastAPI:
         payload, content_type = render_metrics()
         return Response(content=payload, media_type=content_type)
 
-    if _FRONTEND_DIST.is_dir():
+    frontend_dist = _frontend_dist()
+    if frontend_dist.is_dir():
         # Serves /, /ask/, /_next/… — routes above win, everything else falls
         # through to the exported app.
-        app.mount("/", StaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")
+        app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
     else:
 
         @app.get("/", include_in_schema=False)
