@@ -63,7 +63,19 @@ class RetrievalService:
         started = time.perf_counter()
         config = profile.retrieval
         final_n = top_k or config.final_top_n
-        id_filter = [str(document_id) for document_id in document_ids] if document_ids else None
+        # An EMPTY filter means "nothing retrievable" (access control), which
+        # is very different from None (unrestricted) — never collapse the two.
+        if document_ids is not None and not document_ids:
+            return SearchOutcome(
+                results=[],
+                dense_candidates=0,
+                sparse_candidates=0,
+                reranked=False,
+                took_ms=round((time.perf_counter() - started) * 1000, 2),
+            )
+        id_filter = (
+            [str(document_id) for document_id in document_ids] if document_ids is not None else None
+        )
 
         # --- Dense channel ---
         embed_query = getattr(self.embedder, "embed_query", None)

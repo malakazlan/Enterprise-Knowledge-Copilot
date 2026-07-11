@@ -16,9 +16,11 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationAppError
+from app.models.collection import Collection
 from app.models.document import IngestionStatus
 from app.models.user import UserRole
 from app.schemas.document import ChunkRead, DocumentRead, DocumentWithJob, IngestionJobRead
+from app.services.access import allowed_document_ids
 from app.services.documents import DocumentService
 from app.services.ingestion.factory import get_parser, get_vector_store
 from app.services.ingestion.pipeline import IngestionError, IngestionPipeline
@@ -42,7 +44,10 @@ async def upload_document(
     uploader: Uploader,
     file: Annotated[UploadFile, File(...)],
     background: BackgroundTasks,
+    collection_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> DocumentWithJob:
+    if collection_id is not None and await db.get(Collection, collection_id) is None:
+        raise ValidationAppError("Collection not found.")
     data = await file.read()
     if not data:
         raise ValidationAppError("Uploaded file is empty.")
@@ -62,6 +67,7 @@ async def upload_document(
         content_type=content_type,
         data=data,
         uploaded_by=uploader.user_id,
+        collection_id=collection_id,
     )
 
     if settings.ingestion_eager:
@@ -102,20 +108,27 @@ async def upload_document(
 async def list_documents(
     db: DbSession,
     storage: Storage,
-    _principal: CurrentPrincipal,
+    principal: CurrentPrincipal,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[DocumentRead]:
     documents = await DocumentService(db, storage).list_documents(limit=limit, offset=offset)
+    allowed = await allowed_document_ids(db, principal)
+    if allowed is not None:
+        permitted = set(allowed)
+        documents = [document for document in documents if document.id in permitted]
     return [DocumentRead.model_validate(document) for document in documents]
 
 
 @router.get("/{document_id}", response_model=DocumentRead, summary="Get a document")
 async def get_document(
-    db: DbSession, storage: Storage, _principal: CurrentPrincipal, document_id: uuid.UUID
+    db: DbSession, storage: Storage, principal: CurrentPrincipal, document_id: uuid.UUID
 ) -> DocumentRead:
     document = await DocumentService(db, storage).get(document_id)
     if document is None:
+        raise NotFoundError("Document not found.")
+    allowed = await allowed_document_ids(db, principal)
+    if allowed is not None and document.id not in set(allowed):
         raise NotFoundError("Document not found.")
     return DocumentRead.model_validate(document)
 
@@ -141,10 +154,13 @@ async def list_document_jobs(
     summary="List a document's chunks in reading order",
 )
 async def list_document_chunks(
-    db: DbSession, storage: Storage, _principal: CurrentPrincipal, document_id: uuid.UUID
+    db: DbSession, storage: Storage, principal: CurrentPrincipal, document_id: uuid.UUID
 ) -> list[ChunkRead]:
     service = DocumentService(db, storage)
     if await service.get(document_id) is None:
+        raise NotFoundError("Document not found.")
+    allowed = await allowed_document_ids(db, principal)
+    if allowed is not None and document_id not in set(allowed):
         raise NotFoundError("Document not found.")
     chunks = await service.list_chunks(document_id)
     return [ChunkRead.model_validate(chunk) for chunk in chunks]

@@ -7,6 +7,7 @@ metadata-driven tooling (Alembic autogenerate, test schema creation) sees them.
 from __future__ import annotations
 
 from app.models.apikey import ApiKey
+from app.models.collection import Collection, CollectionMember
 from app.models.document import (
     Document,
     DocumentChunk,
@@ -25,6 +26,8 @@ __all__ = [
     "WEBHOOK_EVENTS",
     "ApiKey",
     "ChatThread",
+    "Collection",
+    "CollectionMember",
     "Document",
     "DocumentChunk",
     "EvalCase",

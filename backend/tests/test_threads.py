@@ -110,7 +110,5 @@ async def test_stream_emits_meta_tokens_result(
 
     result = events[-1][1]
     assert result["answered"] is True
-    streamed_text = "".join(
-        str(data["text"]) for name, data in events if name == "token"
-    ).strip()
+    streamed_text = "".join(str(data["text"]) for name, data in events if name == "token").strip()
     assert streamed_text == str(result["answer"]).strip()

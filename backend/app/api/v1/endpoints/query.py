@@ -22,6 +22,7 @@ from app.schemas.query import (
     QueryRequest,
     QueryResponse,
 )
+from app.services.access import allowed_document_ids, restrict_requested_ids
 from app.services.generation.service import GenerationService
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
 from app.services.webhooks import deliver, subscribed
@@ -44,6 +45,9 @@ async def _answer_one(
             raise PermissionDeniedError("Threads require a user session, not an API key.")
         thread = await get_owned_thread(db, request.thread_id, principal.user_id)
 
+    allowed = await allowed_document_ids(db, principal)
+    effective_ids = restrict_requested_ids(allowed, request.document_ids)
+
     profile = get_profile(request.profile or DEFAULT_PROFILE)
     outcome = await GenerationService(db).answer(
         request.query,
@@ -51,7 +55,7 @@ async def _answer_one(
         user_id=principal.user_id,
         api_key_id=principal.api_key_id,
         thread_id=thread.id if thread else None,
-        document_ids=request.document_ids,
+        document_ids=effective_ids,
         top_k=request.top_k,
     )
     if thread is not None:
