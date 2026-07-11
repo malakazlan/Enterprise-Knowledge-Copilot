@@ -62,12 +62,8 @@ async def test_query_limited_per_principal_not_globally(
     assert (await client.post("/api/v1/query", headers=second, json=payload)).status_code == 200
 
     # Search shares the query scope.
-    assert (
-        await client.post("/api/v1/search", headers=second, json=payload)
-    ).status_code == 200
-    assert (
-        await client.post("/api/v1/search", headers=second, json=payload)
-    ).status_code == 429
+    assert (await client.post("/api/v1/search", headers=second, json=payload)).status_code == 200
+    assert (await client.post("/api/v1/search", headers=second, json=payload)).status_code == 429
 
 
 def test_window_slides() -> None:
