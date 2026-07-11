@@ -39,6 +39,9 @@ dependencies = [
     "pyyaml>=6.0",
     # Vector store (default production adapter)
     "qdrant-client>=1.12",
+    # LLM provider SDKs (activated via LLM_PROVIDER config)
+    "anthropic>=0.40",
+    "openai>=1.60",
 ]
 
 [project.optional-dependencies]
