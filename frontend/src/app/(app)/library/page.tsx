@@ -2,6 +2,7 @@
 
 /** Library: upload, list, and delete documents. */
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError, deleteDocument, listDocuments, uploadDocument } from "@/lib/api";
@@ -175,7 +176,13 @@ export default function LibraryPage() {
                     {formatDate(doc.created_at)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Link
+                        href={`/viewer/?doc=${doc.id}`}
+                        className="rounded-lg px-2.5 py-1 text-xs font-medium text-ink-2 hover:bg-hover hover:text-ink"
+                      >
+                        Open
+                      </Link>
                       <Button variant="ghost" small className="text-danger" onClick={() => void remove(doc)}>
                         Delete
                       </Button>

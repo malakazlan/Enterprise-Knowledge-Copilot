@@ -91,3 +91,34 @@ export interface AdminStats {
   api_keys_active: number;
   users_total: number;
 }
+
+export interface ChunkRead {
+  id: string;
+  document_id: string;
+  chunk_index: number;
+  content: string;
+  page_number: number | null;
+  token_count: number | null;
+}
+
+export interface ApiKeyRead {
+  id: string;
+  name: string;
+  role: "admin" | "reviewer" | "user";
+  key_prefix: string;
+  is_active: boolean;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface ApiKeyCreated {
+  id: string;
+  name: string;
+  role: string;
+  key: string;
+  key_prefix: string;
+  expires_at: string | null;
+  created_at: string;
+}

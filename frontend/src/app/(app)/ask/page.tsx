@@ -2,6 +2,7 @@
 
 /** Ask: grounded Q&A with inline citations, confidence, and sources. */
 
+import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ApiError, listProfiles, runQuery } from "@/lib/api";
@@ -86,9 +87,10 @@ function BotAnswer({ response }: { response: QueryResponse }) {
           {response.citations.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2.5">
               {response.citations.map((c) => (
-                <div
+                <Link
                   key={c.marker}
-                  className="flex min-w-[200px] max-w-[260px] cursor-default flex-col gap-1 rounded-lg border border-line bg-canvas px-3 py-2.5 shadow-sm transition-shadow hover:border-accent-border hover:shadow-md"
+                  href={`/viewer/?doc=${c.document_id}&chunk=${c.chunk_id}`}
+                  className="flex min-w-[200px] max-w-[260px] flex-col gap-1 rounded-lg border border-line bg-canvas px-3 py-2.5 shadow-sm transition-shadow hover:border-accent-border hover:shadow-md"
                 >
                   <div className="flex items-center gap-1.5 text-xs">
                     <span className="grid h-[17px] min-w-[17px] place-items-center rounded-[5px] bg-accent-subtle font-mono text-[10px] font-bold text-accent">
@@ -102,7 +104,7 @@ function BotAnswer({ response }: { response: QueryResponse }) {
                   <p className="line-clamp-2 text-[11.5px] leading-normal text-ink-2">
                     “{c.snippet}”
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           )}

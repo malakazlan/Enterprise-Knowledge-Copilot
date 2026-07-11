@@ -2,6 +2,9 @@
 
 import type {
   AdminStats,
+  ApiKeyCreated,
+  ApiKeyRead,
+  ChunkRead,
   DocumentRead,
   ProfileSummary,
   QueryResponse,
@@ -168,3 +171,19 @@ export const resolveReview = (
   });
 
 export const adminStats = (): Promise<AdminStats> => request<AdminStats>("/admin/stats");
+
+// ---- chunks & keys ----
+
+export const getDocument = (id: string): Promise<DocumentRead> =>
+  request<DocumentRead>(`/documents/${id}`);
+
+export const listChunks = (documentId: string): Promise<ChunkRead[]> =>
+  request<ChunkRead[]>(`/documents/${documentId}/chunks`);
+
+export const listApiKeys = (): Promise<ApiKeyRead[]> => request<ApiKeyRead[]>("/api-keys");
+
+export const createApiKey = (name: string, role: string): Promise<ApiKeyCreated> =>
+  request<ApiKeyCreated>("/api-keys", { method: "POST", json: { name, role } });
+
+export const revokeApiKey = (id: string): Promise<void> =>
+  request<void>(`/api-keys/${id}`, { method: "DELETE" });
