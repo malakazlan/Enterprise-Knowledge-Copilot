@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_base_url: str | None = None
     openai_model: str = "gpt-4o-mini"
+    # Used when embedder_provider=openai; output is truncated to
+    # embedding_dimension via the API's `dimensions` parameter.
+    openai_embedding_model: str = "text-embedding-3-small"
     # Ollama/vLLM/LM Studio expose an OpenAI-compatible endpoint.
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model: str = "llama3.1"
