@@ -31,7 +31,8 @@ RUN groupadd --system app && useradd --system --gid app --home-dir /app app
 
 COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
-COPY pyproject.toml README.md ./
+COPY alembic ./alembic
+COPY alembic.ini pyproject.toml README.md ./
 
 USER app
 

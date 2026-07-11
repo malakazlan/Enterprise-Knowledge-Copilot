@@ -21,9 +21,25 @@ from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddlew
 _STATIC_DIR = Path(__file__).parent / "static"
 
 
+def _run_migrations() -> None:
+    """Apply Alembic migrations to head (runs in a worker thread)."""
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    root = Path(__file__).resolve().parent.parent  # directory holding alembic.ini
+    config = AlembicConfig(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "alembic"))
+    command.upgrade(config, "head")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    import asyncio
+
     logger = get_logger("app.lifecycle")
+    if settings.auto_migrate:
+        logger.info("migrating_database")
+        await asyncio.to_thread(_run_migrations)
     logger.info("startup", environment=settings.environment, version=__version__)
     yield
     logger.info("shutdown")

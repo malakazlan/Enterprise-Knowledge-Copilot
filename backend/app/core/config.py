@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     # --- Datastores ---
     database_url: str = "postgresql+asyncpg://ekc:ekc@localhost:5432/ekc"
     redis_url: str = "redis://localhost:6379/0"
+    # Apply Alembic migrations on startup. The right default for self-hosted
+    # single-node deployments; set false when migrations are run externally
+    # (e.g. a deploy job in multi-replica setups).
+    auto_migrate: bool = True
 
     # --- Storage ---
     storage_dir: str = "./storage"
