@@ -15,6 +15,7 @@ from app.models.document import (
     JobStage,
     JobStatus,
 )
+from app.models.evals import EvalCase, EvalDataset, EvalRun
 from app.models.querylog import QueryLog
 from app.models.user import User, UserRole
 
@@ -22,6 +23,9 @@ __all__ = [
     "ApiKey",
     "Document",
     "DocumentChunk",
+    "EvalCase",
+    "EvalDataset",
+    "EvalRun",
     "IngestionJob",
     "IngestionStatus",
     "JobStage",
