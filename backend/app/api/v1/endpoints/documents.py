@@ -19,7 +19,7 @@ from app.core.exceptions import NotFoundError, ValidationAppError
 from app.models.user import UserRole
 from app.schemas.document import DocumentRead, DocumentWithJob, IngestionJobRead
 from app.services.documents import DocumentService
-from app.services.ingestion.factory import get_vector_store
+from app.services.ingestion.factory import get_parser, get_vector_store
 from app.services.ingestion.pipeline import IngestionError, IngestionPipeline
 
 router = APIRouter(tags=["documents"])
@@ -48,10 +48,15 @@ async def upload_document(
             f"File exceeds the maximum size of {settings.max_upload_bytes} bytes."
         )
 
+    filename = file.filename or "upload"
+    content_type = file.content_type or "application/octet-stream"
+    if not get_parser().supports(content_type, filename):
+        raise ValidationAppError(f"Unsupported file type: {filename} ({content_type}).")
+
     service = DocumentService(db, storage)
     document, job = await service.create_from_upload(
-        filename=file.filename or "upload",
-        content_type=file.content_type,
+        filename=filename,
+        content_type=content_type,
         data=data,
         uploaded_by=uploader.user_id,
     )
