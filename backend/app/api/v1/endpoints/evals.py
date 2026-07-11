@@ -7,10 +7,11 @@ sets are deliberately small); large-scale async runs move to Celery later.
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.deps import CurrentUser, DbSession, require_roles
+from app.api.deps import DbSession, Principal, require_principal_roles
 from app.core.exceptions import NotFoundError
 from app.models.evals import EvalCase, EvalDataset
 from app.models.user import UserRole
@@ -26,7 +27,11 @@ from app.schemas.evals import (
 from app.services.evals.service import EvalService
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
 
-router = APIRouter(tags=["evals"], dependencies=[Depends(require_roles(UserRole.ADMIN))])
+router = APIRouter(
+    tags=["evals"], dependencies=[Depends(require_principal_roles(UserRole.ADMIN))]
+)
+
+AdminPrincipal = Annotated[Principal, Depends(require_principal_roles(UserRole.ADMIN))]
 
 
 async def _dataset_or_404(service: EvalService, dataset_id: uuid.UUID) -> EvalDataset:
@@ -43,7 +48,7 @@ async def _dataset_or_404(service: EvalService, dataset_id: uuid.UUID) -> EvalDa
     summary="Create an eval dataset",
 )
 async def create_dataset(
-    payload: EvalDatasetCreate, db: DbSession, current_user: CurrentUser
+    payload: EvalDatasetCreate, db: DbSession, principal: AdminPrincipal
 ) -> EvalDatasetRead:
     if payload.profile is not None:
         get_profile(payload.profile)  # 404 on unknown profile
@@ -52,7 +57,7 @@ async def create_dataset(
         name=payload.name,
         description=payload.description,
         profile=payload.profile,
-        created_by=current_user.id,
+        created_by=principal.user_id,
     )
     db.add(dataset)
     await db.commit()
@@ -121,12 +126,12 @@ async def add_case(payload: EvalCaseCreate, db: DbSession, dataset_id: uuid.UUID
     summary="Run the dataset against the live pipeline",
 )
 async def run_dataset(
-    payload: EvalRunRequest, db: DbSession, current_user: CurrentUser, dataset_id: uuid.UUID
+    payload: EvalRunRequest, db: DbSession, principal: AdminPrincipal, dataset_id: uuid.UUID
 ) -> EvalRunRead:
     service = EvalService(db)
     dataset = await _dataset_or_404(service, dataset_id)
     profile = get_profile(payload.profile or dataset.profile or DEFAULT_PROFILE)
-    run = await service.run_dataset(dataset, profile, created_by=current_user.id)
+    run = await service.run_dataset(dataset, profile, created_by=principal.user_id)
     return EvalRunRead.model_validate(run)
 
 

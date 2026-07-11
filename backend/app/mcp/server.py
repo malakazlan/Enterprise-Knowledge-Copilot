@@ -142,6 +142,122 @@ async def deployment_stats() -> dict[str, Any]:
     return stats
 
 
+@mcp.tool()
+async def list_profiles() -> list[dict[str, Any]]:
+    """List domain profiles with their full retrieval/generation settings.
+
+    Use to compare strictness (confidence thresholds), chunking, and top-k
+    when recommending a profile during setup.
+    """
+    profiles: list[dict[str, Any]] = await _call("GET", "/profiles")
+    return profiles
+
+
+@mcp.tool()
+async def eval_create_dataset(
+    name: str, description: str | None = None, profile: str | None = None
+) -> dict[str, Any]:
+    """Create a golden-question dataset for evaluating answer quality.
+
+    Requires an admin-role API key.
+    """
+    payload: dict[str, Any] = {"name": name, "description": description, "profile": profile}
+    data = await _call("POST", "/evals/datasets", payload)
+    return {"dataset_id": data["id"], "name": data["name"], "profile": data["profile"]}
+
+
+@mcp.tool()
+async def eval_add_case(
+    dataset_id: str,
+    question: str,
+    expected_keywords: list[str] | None = None,
+    expected_page: int | None = None,
+) -> dict[str, Any]:
+    """Add a golden question to a dataset.
+
+    `expected_keywords` are terms a correct answer's evidence must contain —
+    ask the admin what a correct answer looks like and derive keywords.
+    """
+    payload: dict[str, Any] = {
+        "question": question,
+        "expected_keywords": expected_keywords or [],
+        "expected_page": expected_page,
+    }
+    data = await _call("POST", f"/evals/datasets/{dataset_id}/cases", payload)
+    return {"case_id": data["id"], "question": data["question"]}
+
+
+@mcp.tool()
+async def eval_run(dataset_id: str, profile: str | None = None) -> dict[str, Any]:
+    """Run a dataset against the live pipeline; returns quality metrics.
+
+    Pass `profile` to A/B-compare profiles on the same questions. Metrics:
+    hit_rate, mrr, page_hit_rate, keyword_recall, citation_accuracy (0-1).
+    """
+    payload: dict[str, Any] = {"profile": profile} if profile else {}
+    data = await _call("POST", f"/evals/datasets/{dataset_id}/run", payload)
+    return {
+        "run_id": data["id"],
+        "profile": data["profile"],
+        "case_count": data["case_count"],
+        "metrics": data["metrics"],
+    }
+
+
+@mcp.tool()
+async def review_queue(status: str = "pending", limit: int = 20) -> list[dict[str, Any]]:
+    """List answers flagged for human review (status: pending|approved|rejected).
+
+    Requires a reviewer- or admin-role API key.
+    """
+    data = await _call("GET", f"/reviews?status={status}&limit={max(1, min(limit, 200))}")
+    return [
+        {
+            "id": r["id"],
+            "question": r["query"],
+            "confidence": r["confidence"],
+            "profile": r["profile"],
+            "created_at": r["created_at"],
+        }
+        for r in data
+    ]
+
+
+@mcp.prompt(name="setup-copilot")
+def setup_copilot() -> str:
+    """Interview the administrator and configure this deployment step by step."""
+    return (
+        "You are the setup copilot for a self-hosted Enterprise Knowledge "
+        "Copilot deployment. Work through this checklist with the "
+        "administrator, one step at a time, using the ekc tools:\n\n"
+        "1. ORIENT - call deployment_stats and list_documents. Summarize what "
+        "is already deployed (documents, queries, pending reviews).\n"
+        "2. INTERVIEW - ask about their industry, how costly a wrong answer "
+        "is (prefer declining vs. answering), and whether cloud AI providers "
+        "are permitted or everything must stay on their servers.\n"
+        "3. RECOMMEND A PROFILE - call list_profiles, compare thresholds to "
+        "their risk tolerance, and recommend one. High-stakes domains (legal, "
+        "healthcare, government) need high refuse/review thresholds.\n"
+        "4. PROVIDERS - based on the cloud question, recommend .env settings: "
+        "local-only (EMBEDDER_PROVIDER=hashing, LLM_PROVIDER=extractive, or "
+        "Ollama for local LLM) versus cloud (openai/anthropic + qdrant). "
+        "Explain that provider changes require editing .env and restarting - "
+        "you cannot change them via tools.\n"
+        "5. GOLDEN QUESTIONS - ask for 5-10 real questions their staff will "
+        "ask, plus what a correct answer must mention. Create a dataset with "
+        "eval_create_dataset, add each with eval_add_case (derive "
+        "expected_keywords from the correct answers).\n"
+        "6. EVALUATE - eval_run the dataset with the recommended profile. If "
+        "metrics disappoint, try one alternative profile and compare. Explain "
+        "results in plain language (hit_rate = how often the right document "
+        "is found; keyword_recall = how often correct evidence appears).\n"
+        "7. HAND OFF - summarize: chosen profile, .env recommendations, eval "
+        "scores, and how to use the review queue. Never invent metrics - "
+        "only report numbers returned by the tools; when a tool call fails, "
+        "show the error and continue."
+    )
+
+
 def main() -> None:
     """Console-script entry point (stdio transport)."""
     mcp.run()

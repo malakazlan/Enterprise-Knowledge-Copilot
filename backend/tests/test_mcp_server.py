@@ -81,3 +81,33 @@ async def test_tools_registered() -> None:
     tools = await mcp_server.mcp.list_tools()
     names = {tool.name for tool in tools}
     assert {"ask", "search", "list_documents", "deployment_stats"} <= names
+
+
+async def test_setup_copilot_eval_loop(mcp_env: None) -> None:
+    """The copilot's core loop: dataset -> case -> run -> metrics."""
+    profiles = await mcp_server.list_profiles()
+    names = {p["name"] for p in profiles}
+    assert {"legal", "general"} <= names
+
+    dataset = await mcp_server.eval_create_dataset("smoke", profile="general")
+    case = await mcp_server.eval_add_case(
+        dataset["dataset_id"],
+        "Who must wear a helmet?",
+        expected_keywords=["helmet"],
+    )
+    assert case["case_id"]
+
+    run = await mcp_server.eval_run(dataset["dataset_id"])
+    assert run["case_count"] == 1
+    assert run["metrics"]["keyword_recall"] == 1.0
+
+    queue = await mcp_server.review_queue()
+    assert isinstance(queue, list)
+
+
+async def test_setup_copilot_prompt_registered() -> None:
+    prompts = await mcp_server.mcp.list_prompts()
+    assert "setup-copilot" in {p.name for p in prompts}
+    result = await mcp_server.mcp.get_prompt("setup-copilot")
+    text = result.messages[0].content.text
+    assert "INTERVIEW" in text and "eval_run" in text
