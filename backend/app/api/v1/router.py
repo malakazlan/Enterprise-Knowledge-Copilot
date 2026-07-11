@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    admin,
     api_keys,
     auth,
     documents,
@@ -12,6 +13,7 @@ from app.api.v1.endpoints import (
     health,
     profiles,
     query,
+    reviews,
     search,
     users,
 )
@@ -26,3 +28,5 @@ api_router.include_router(profiles.router, prefix="/profiles")
 api_router.include_router(search.router, prefix="/search")
 api_router.include_router(query.router, prefix="/query")
 api_router.include_router(evals.router, prefix="/evals")
+api_router.include_router(reviews.router, prefix="/reviews")
+api_router.include_router(admin.router, prefix="/admin")
