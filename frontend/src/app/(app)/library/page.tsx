@@ -110,7 +110,7 @@ export default function LibraryPage() {
         <span>
           <span className="block text-sm font-semibold">Drop files to upload, or browse</span>
           <span className="mt-0.5 block text-[12.5px] text-ink-2">
-            pdf · png / jpg · md · txt — processed on this server, nothing leaves it
+            pdf · docx / pptx / xlsx · png / jpg · md / txt — processed on this server, nothing leaves it
           </span>
         </span>
         <span className="ml-auto">
@@ -120,7 +120,7 @@ export default function LibraryPage() {
           ref={fileInput}
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.md,.txt"
+          accept=".pdf,.png,.jpg,.jpeg,.md,.txt,.docx,.pptx,.xlsx"
           className="hidden"
           onChange={(e) => {
             void handleFiles(e.target.files);

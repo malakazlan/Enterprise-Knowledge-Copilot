@@ -67,6 +67,17 @@ def get_parser() -> DocumentParser:
         parsers: list[DocumentParser] = [PdfParser(ocr=ocr)]
         if ocr is not None:
             parsers.append(ImageOcrParser(ocr))
+        import importlib.util
+
+        if all(
+            importlib.util.find_spec(module) is not None for module in ("docx", "pptx", "openpyxl")
+        ):
+            from app.services.ingestion.office import OfficeParser
+
+            parsers.append(OfficeParser())
+        else:
+            # DOCX/PPTX/XLSX need the [office] extra; everything else works.
+            logger.warning("office_parsers_unavailable")
         parsers.append(LocalTextParser())
         return CompositeParser(parsers)
     raise ServiceUnavailableError(f"Parser provider '{provider}' is not configured.")
