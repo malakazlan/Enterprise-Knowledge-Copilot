@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.querylog import QueryLog
+from app.models.querylog import QueryLog, ReviewStatus
 from app.services.generation.confidence import compute_confidence
 from app.services.generation.factory import get_answer_generator
 from app.services.generation.groundedness import check_groundedness
@@ -204,6 +204,7 @@ class GenerationService:
             confidence=outcome.confidence,
             grounded_ratio=outcome.grounded_ratio,
             needs_review=outcome.needs_review,
+            review_status=ReviewStatus.PENDING if outcome.needs_review else None,
             model=outcome.model,
             citations=[
                 {
