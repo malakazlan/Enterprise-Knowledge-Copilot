@@ -9,16 +9,19 @@ from pathlib import Path
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.exceptions import register_exception_handlers
+from app.core.exceptions import NotFoundError, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import render_metrics
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 
 _STATIC_DIR = Path(__file__).parent / "static"
+# Static export of the Next.js app (frontend/out). Absent in API-only deploys.
+_FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "out"
 
 
 def _run_migrations() -> None:
@@ -73,15 +76,36 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
-    @app.get("/", include_in_schema=False)
-    async def root() -> FileResponse:
-        """Serve the self-contained web console (no build chain, no CDN)."""
+    @app.get("/console", include_in_schema=False)
+    async def console() -> FileResponse:
+        """Self-contained fallback console (single file, no build chain)."""
         return FileResponse(_STATIC_DIR / "index.html", media_type="text/html")
+
+    # Unknown API paths must keep the JSON error envelope even when the static
+    # frontend mount below would otherwise swallow them with an HTML 404.
+    @app.api_route(
+        "/api/{_rest:path}",
+        include_in_schema=False,
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    )
+    async def api_not_found(_rest: str) -> None:
+        raise NotFoundError("Not found.")
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:
         payload, content_type = render_metrics()
         return Response(content=payload, media_type=content_type)
+
+    if _FRONTEND_DIST.is_dir():
+        # Serves /, /ask/, /_next/… — routes above win, everything else falls
+        # through to the exported app.
+        app.mount("/", StaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")
+    else:
+
+        @app.get("/", include_in_schema=False)
+        async def root() -> FileResponse:
+            """No frontend build present; serve the fallback console."""
+            return FileResponse(_STATIC_DIR / "index.html", media_type="text/html")
 
     return app
 

@@ -24,8 +24,18 @@ async def test_readiness_returns_ok(client: AsyncClient) -> None:
     assert all(check["healthy"] for check in body["checks"])
 
 
-async def test_root_serves_console(client: AsyncClient) -> None:
-    resp = await client.get("/")
+async def test_root_serves_html(client: AsyncClient) -> None:
+    # Root serves the built frontend when present, else the fallback console.
+    resp = await client.get("/", follow_redirects=True)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    csp = resp.headers["content-security-policy"]
+    assert "connect-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+
+
+async def test_console_serves_fallback_ui(client: AsyncClient) -> None:
+    resp = await client.get("/console")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/html")
     assert "Enterprise Knowledge Copilot" in resp.text

@@ -26,6 +26,18 @@ _CONSOLE_CSP = (
     "frame-ancestors 'none'"
 )
 
+# The exported web app loads its own hashed chunks from /_next/ and inlines a
+# bootstrap script (unavoidable with a static export), but may never reach any
+# other origin: no CDNs, no telemetry, no remote fonts.
+_APP_CSP = (
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
+    "connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+)
+
+# Interactive API docs load Swagger assets and must keep their default policy.
+_CSP_EXEMPT_PREFIXES = ("/docs", "/redoc", "/openapi.json")
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Baseline security headers on every response."""
@@ -35,8 +47,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "same-origin")
-        if request.url.path == "/":
+        path = request.url.path
+        if path == "/console":
             response.headers.setdefault("Content-Security-Policy", _CONSOLE_CSP)
+        elif not path.startswith(_CSP_EXEMPT_PREFIXES) and response.headers.get(
+            "content-type", ""
+        ).startswith("text/html"):
+            response.headers.setdefault("Content-Security-Policy", _APP_CSP)
         return response
 
 
