@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_auth_per_minute: int = 20
     rate_limit_query_per_minute: int = 120
+    # OIDC single sign-on (enabled when all four are set). Works with Entra,
+    # Google Workspace, Okta, Keycloak, or any OpenID Connect provider.
+    oidc_issuer: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: SecretStr | None = None
+    oidc_redirect_url: str | None = None
+    oidc_provider_name: str = "SSO"
+    oidc_scopes: str = "openid email profile"
     # Directory of the built web app (Next.js static export). When unset, the
     # repo-relative frontend/out is used if present; the console is the fallback.
     frontend_dist: str | None = None

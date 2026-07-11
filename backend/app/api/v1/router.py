@@ -17,6 +17,7 @@ from app.api.v1.endpoints import (
     query,
     reviews,
     search,
+    sso,
     threads,
     users,
 )
@@ -24,6 +25,7 @@ from app.api.v1.endpoints import (
 api_router = APIRouter()
 api_router.include_router(health.router, prefix="/health")
 api_router.include_router(auth.router, prefix="/auth")
+api_router.include_router(sso.router, prefix="/auth/oidc")
 api_router.include_router(users.router, prefix="/users")
 api_router.include_router(api_keys.router, prefix="/api-keys")
 api_router.include_router(documents.router, prefix="/documents")
