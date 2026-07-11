@@ -17,12 +17,14 @@ from app.models.document import (
 )
 from app.models.evals import EvalCase, EvalDataset, EvalRun
 from app.models.querylog import QueryLog, ReviewStatus
+from app.models.thread import ChatThread
 from app.models.user import User, UserRole
 from app.models.webhook import WEBHOOK_EVENTS, Webhook
 
 __all__ = [
     "WEBHOOK_EVENTS",
     "ApiKey",
+    "ChatThread",
     "Document",
     "DocumentChunk",
     "EvalCase",
