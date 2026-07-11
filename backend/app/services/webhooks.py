@@ -14,6 +14,7 @@ not the system of record — the query log remains authoritative.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -44,8 +45,17 @@ async def subscribed(db: AsyncSession, event: str) -> list[Target]:
     return [(h.url, h.secret) for h in result.scalars().all() if event in (h.events or [])]
 
 
+# Waits before the 2nd and 3rd delivery attempts (tests shrink these).
+_RETRY_BACKOFF_SECONDS: tuple[float, ...] = (1.0, 4.0)
+
+
 async def deliver(event: str, targets: list[Target], payload: dict[str, Any]) -> None:
-    """POST the event to each target (DB-free; safe as a background task)."""
+    """POST the event to each target (DB-free; safe as a background task).
+
+    Network errors and 5xx responses are retried with backoff — the receiver
+    was willing but unable. 4xx responses are NOT retried: the registration
+    is misconfigured and repeating the request cannot fix it.
+    """
     if not targets:
         return
     body = json.dumps(
@@ -59,10 +69,34 @@ async def deliver(event: str, targets: list[Target], payload: dict[str, Any]) ->
             if secret:
                 digest = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
                 headers["X-EKC-Signature"] = f"sha256={digest}"
-            try:
-                response = await client.post(url, content=body, headers=headers)
-                logger.info(
-                    "webhook_delivered", hook_event=event, url=url, status_code=response.status_code
+            await _deliver_one(client, url, body, headers, event)
+
+
+async def _deliver_one(
+    client: httpx.AsyncClient, url: str, body: bytes, headers: dict[str, str], event: str
+) -> None:
+    attempts = len(_RETRY_BACKOFF_SECONDS) + 1
+    for attempt in range(1, attempts + 1):
+        try:
+            response = await client.post(url, content=body, headers=headers)
+        except httpx.HTTPError as exc:
+            failure = str(exc)
+        else:
+            if response.status_code < 500:
+                log = logger.info if response.status_code < 400 else logger.warning
+                log(
+                    "webhook_delivered",
+                    hook_event=event,
+                    url=url,
+                    status_code=response.status_code,
+                    attempt=attempt,
                 )
-            except httpx.HTTPError as exc:
-                logger.warning("webhook_failed", hook_event=event, url=url, error=str(exc))
+                return
+            failure = f"HTTP {response.status_code}"
+
+        if attempt < attempts:
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS[attempt - 1])
+        else:
+            logger.warning(
+                "webhook_failed", hook_event=event, url=url, error=failure, attempts=attempts
+            )

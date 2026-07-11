@@ -152,3 +152,54 @@ async def test_webhooks_require_admin(
     member = await auth_headers("member@example.com")
     resp = await client.get(WEBHOOKS, headers=member)
     assert resp.status_code == 403
+
+
+async def test_delivery_retries_on_server_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Network errors and 5xx are retried; success stops the retry loop."""
+    monkeypatch.setattr(webhook_service, "_RETRY_BACKOFF_SECONDS", (0.0, 0.0))
+    attempts: list[int] = []
+    responses = iter([httpx.Response(500), httpx.Response(503), httpx.Response(200)])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        attempts.append(1)
+        return next(responses)
+
+    webhook_service._transport = httpx.MockTransport(handler)
+    try:
+        await webhook_service.deliver("query.refused", [("https://x.example/h", None)], {"a": 1})
+    finally:
+        webhook_service._transport = None
+    assert len(attempts) == 3
+
+
+async def test_delivery_does_not_retry_client_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 4xx means the registration is wrong; retrying cannot help."""
+    monkeypatch.setattr(webhook_service, "_RETRY_BACKOFF_SECONDS", (0.0, 0.0))
+    attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        attempts.append(1)
+        return httpx.Response(404)
+
+    webhook_service._transport = httpx.MockTransport(handler)
+    try:
+        await webhook_service.deliver("query.refused", [("https://x.example/h", None)], {"a": 1})
+    finally:
+        webhook_service._transport = None
+    assert len(attempts) == 1
+
+
+async def test_delivery_gives_up_after_max_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(webhook_service, "_RETRY_BACKOFF_SECONDS", (0.0, 0.0))
+    attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        attempts.append(1)
+        raise httpx.ConnectError("refused")
+
+    webhook_service._transport = httpx.MockTransport(handler)
+    try:
+        await webhook_service.deliver("query.refused", [("https://x.example/h", None)], {"a": 1})
+    finally:
+        webhook_service._transport = None
+    assert len(attempts) == 3
