@@ -67,8 +67,9 @@ Thumbs.db
 # ---- Docker ----
 .docker/
 
-# ---- Internal design docs (local only for now) ----
+# ---- Internal design docs & agent config (local only for now) ----
 /docs/
+/CLAUDE.md
 
 # ---- Alembic local ----
 backend/alembic/versions/*.pyc
