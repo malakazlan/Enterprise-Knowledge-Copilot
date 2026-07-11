@@ -115,6 +115,9 @@ class IngestionPipeline:
         records: list[VectorRecord] = []
         for data, embedding in zip(chunk_data, embeddings, strict=True):
             chunk = DocumentChunk(
+                # Assign the id eagerly: the column default fires at INSERT, but
+                # the vector record must carry the same id before the flush.
+                id=uuid.uuid4(),
                 document_id=document.id,
                 chunk_index=data.index,
                 content=data.content,
