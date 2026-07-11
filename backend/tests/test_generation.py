@@ -78,6 +78,29 @@ async def test_extractive_with_no_chunks() -> None:
     assert draft.text is None
 
 
+async def test_extractive_skips_layout_fragments() -> None:
+    # Real-world regression: a quiz sheet with one-word lines ("How", "are",
+    # "you") lexically matches English questions and used to be quoted.
+    quiz = _chunk("frag", "Convert the dialogue.\nHow\nare\nyou\ntoday?")
+    draft = await ExtractiveGenerator().generate(
+        "How many years of experience does the candidate have?",
+        [SAFETY, quiz],
+        get_profile("general"),
+    )
+    if draft.text is not None:
+        assert "How [" not in draft.text
+        assert "you [" not in draft.text
+
+
+async def test_extractive_refuses_on_function_word_matches_only() -> None:
+    # Real-world regression: "What is the capital of Mars?" used to be
+    # answered at high confidence because "what"/"is" matched sentences.
+    draft = await ExtractiveGenerator().generate(
+        "What is the capital of Mars?", [SAFETY, FINANCE], get_profile("general")
+    )
+    assert draft.text is None
+
+
 # --- LLM citation generator (via fake provider) ---
 
 
