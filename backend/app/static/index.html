@@ -233,6 +233,7 @@
       <button class="k active" data-view="ask" type="button">Ask</button>
       <button class="k" data-view="search" type="button">Search</button>
       <button class="k" data-view="library" type="button">Library</button>
+      <button class="k" data-view="review" id="nav-review" type="button" hidden>Review</button>
       <button class="k" data-view="keys" id="nav-keys" type="button" hidden>API Keys</button>
     </nav>
 
@@ -272,6 +273,18 @@
         </div>
         <div id="library-notice"></div>
         <div id="library-table"></div>
+      </section>
+
+      <!-- REVIEW -->
+      <section class="view" id="view-review">
+        <h2>Review queue</h2>
+        <p class="lede">Answers whose confidence fell in the review band. Approve to certify, reject to strike from the record.</p>
+        <div class="toolbar">
+          <div id="stats-strip" style="display:flex;gap:1.4rem;flex-wrap:wrap"></div>
+          <span class="grow"></span>
+          <button id="refresh-reviews" type="button">Refresh</button>
+        </div>
+        <div id="review-list"></div>
       </section>
 
       <!-- API KEYS -->
@@ -387,11 +400,13 @@ async function showConsole() {
   state.user = await api("/auth/me");
   $("who").textContent = state.user.email + " · " + state.user.role.toUpperCase();
   const isAdmin = state.user.role === "admin";
-  const canUpload = isAdmin || state.user.role === "reviewer";
+  const canReview = isAdmin || state.user.role === "reviewer";
   $("nav-keys").hidden = !isAdmin;
-  $("upload-btn").hidden = !canUpload;
+  $("nav-review").hidden = !canReview;
+  $("upload-btn").hidden = !canReview;
   await loadProfiles();
   await loadDocuments();
+  if (canReview) await loadReviews();
   if (isAdmin) await loadKeys();
 }
 
@@ -672,6 +687,73 @@ async function loadDocuments() {
   }
   table.append(tbody);
   container.append(table);
+}
+
+/* ============ review queue (reviewer/admin) ============ */
+$("refresh-reviews").addEventListener("click", loadReviews);
+
+async function loadReviews() {
+  await Promise.all([renderStats(), renderQueue()]);
+}
+
+async function renderStats() {
+  if (!state.user || state.user.role !== "admin") { clear($("stats-strip")); return; }
+  try {
+    const stats = await api("/admin/stats");
+    const chip = (label, value) => el("div", null,
+      el("span", { class: "k" }, label),
+      el("div", { class: "mono", style: "font-size:1.15rem" }, String(value)));
+    const strip = $("stats-strip");
+    clear(strip);
+    strip.append(
+      chip("Documents", stats.documents_total),
+      chip("Chunks", stats.chunks_total),
+      chip("Queries", stats.queries_total),
+      chip("Answered", stats.queries_answered),
+      chip("Refused", stats.queries_refused),
+      chip("Avg conf", stats.avg_confidence_answered ?? "—"),
+      chip("Pending", stats.reviews_pending),
+    );
+  } catch { /* stats are admin-only decoration */ }
+}
+
+async function renderQueue() {
+  const container = $("review-list");
+  clear(container);
+  let items;
+  try { items = await api("/reviews?status=pending"); }
+  catch (error) { container.append(el("div", { class: "notice err" }, error.message)); return; }
+  if (!items.length) {
+    container.append(el("div", { class: "empty" }, "Nothing awaits review. The record is clean."));
+    return;
+  }
+  for (const item of items) {
+    const card = el("div", { class: "answer-card card", style: "margin-bottom:1rem" });
+    card.append(el("div", { class: "qline" },
+      "Q · " + item.query + "   ·   conf " + item.confidence.toFixed(2) +
+      "   ·   " + new Date(item.created_at).toLocaleString()));
+    card.append(el("div", { class: "answer-text", style: "font-size:.95rem" }, item.answer || "—"));
+    if (item.citations.length) {
+      card.append(el("p", { class: "k", style: "margin-top:.6rem" },
+        "cites: " + item.citations.map((c) => c.filename + " p." + (c.page_number ?? "?")).join(" · ")));
+    }
+    const actions = el("div", { style: "margin-top:.9rem; display:flex; gap:.6rem" });
+    const resolve = async (action) => {
+      const note = action === "reject" ? (prompt("Reason for rejection (recorded):") || null) : null;
+      try {
+        await api("/reviews/" + item.id + "/resolve", {
+          method: "POST", body: JSON.stringify({ action, note }),
+        });
+        await loadReviews();
+      } catch (error) { alert(error.message); }
+    };
+    actions.append(
+      el("button", { class: "primary", onclick: () => resolve("approve") }, "Approve"),
+      el("button", { class: "danger", onclick: () => resolve("reject") }, "Reject"),
+    );
+    card.append(actions);
+    container.append(card);
+  }
 }
 
 /* ============ api keys (admin) ============ */
