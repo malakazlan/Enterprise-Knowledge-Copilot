@@ -150,3 +150,22 @@ export function EmptyState({ title, hint }: { title: string; hint: string }) {
     </div>
   );
 }
+
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <span className={`block animate-pulse rounded-md bg-subtle ${className}`} />;
+}
+
+export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      {Array.from({ length: rows }, (_, i) => (
+        <span key={i} className="flex items-center gap-4">
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-12" />
+          <Skeleton className="ml-auto h-4 w-20" />
+        </span>
+      ))}
+    </div>
+  );
+}

@@ -3,6 +3,7 @@
 /** Ask: streamed grounded answers with citations, in persistent threads. */
 
 import Link from "next/link";
+import { Plus, SendHorizontal, Trash2 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import {
@@ -263,7 +264,7 @@ export default function AskPage() {
           onClick={newChat}
           className="mb-3 w-full rounded-lg border border-line-strong bg-canvas px-3 py-1.5 text-[13px] font-medium shadow-sm transition-colors hover:bg-subtle"
         >
-          + New chat
+          <span className="inline-flex items-center gap-1.5"><Plus size={14} /> New chat</span>
         </button>
         <div className="flex flex-col gap-0.5">
           {threads.map((t) => (
@@ -284,7 +285,7 @@ export default function AskPage() {
                 className="hidden shrink-0 text-ink-3 group-hover:block hover:text-danger"
                 title="Delete conversation"
               >
-                ✕
+                <Trash2 size={13} />
               </button>
             </div>
           ))}
@@ -360,7 +361,7 @@ export default function AskPage() {
             className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-ink-3 focus:outline-none"
           />
           <Button variant="primary" type="submit" disabled={busy || !question.trim()}>
-            Ask
+            <SendHorizontal size={14} /> Ask
           </Button>
         </form>
       </div>
