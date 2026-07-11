@@ -8,10 +8,10 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import structlog
-from sqlalchemy import desc, select
+from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.document import Document, IngestionJob, JobStatus
+from app.models.document import Document, DocumentChunk, IngestionJob, JobStatus
 from app.services.storage import ObjectStorage
 
 logger = structlog.get_logger("app.documents")
@@ -74,5 +74,9 @@ class DocumentService:
             await self.storage.delete(document.storage_uri)
         except Exception as exc:  # storage cleanup is best-effort
             logger.warning("storage_delete_failed", uri=document.storage_uri, error=str(exc))
+        # Explicit child cleanup: portable across engines regardless of whether
+        # DB-level ON DELETE CASCADE is enforced (e.g. SQLite without pragma).
+        await self.db.execute(delete(IngestionJob).where(IngestionJob.document_id == document.id))
+        await self.db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document.id))
         await self.db.delete(document)
         await self.db.commit()
