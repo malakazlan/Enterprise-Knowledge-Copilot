@@ -1,0 +1,30 @@
+# Manufacturing — manuals, SOPs, safety and maintenance procedures.
+name: manufacturing
+display_name: Manufacturing & Industrial
+description: >-
+  Tuned for equipment manuals, standard operating procedures, safety data
+  sheets, and maintenance guides. Chunks sized for procedural steps; part
+  numbers and error codes matched exactly.
+industry: manufacturing
+
+chunking:
+  strategy: semantic
+  chunk_size: 1100        # a full procedure step with its warnings stays whole
+  chunk_overlap: 150
+  respect_page_boundaries: true
+
+retrieval:
+  dense_top_k: 35
+  sparse_top_k: 35        # part numbers and error codes are exact-match queries
+  fusion: rrf
+  rrf_k: 60
+  rerank_enabled: true
+  final_top_n: 8
+
+generation:
+  temperature: 0.1
+  max_tokens: 2000
+  citations_required: true
+  groundedness_check: true
+  confidence_threshold_review: 0.55   # safety-relevant procedures get reviewed
+  confidence_threshold_refuse: 0.30

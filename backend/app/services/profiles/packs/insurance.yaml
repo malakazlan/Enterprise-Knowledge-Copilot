@@ -1,0 +1,30 @@
+# Insurance — policies, claims manuals, underwriting guidelines.
+name: insurance
+display_name: Insurance
+description: >-
+  Tuned for policy wordings, claims handling manuals, and underwriting
+  guidelines. Clause-level precision with exact matching for policy sections,
+  exclusions, and coverage codes.
+industry: insurance
+
+chunking:
+  strategy: semantic
+  chunk_size: 900         # exclusions and coverage clauses are dense and local
+  chunk_overlap: 120
+  respect_page_boundaries: true
+
+retrieval:
+  dense_top_k: 35
+  sparse_top_k: 40        # section refs and coverage codes need exact matches
+  fusion: rrf
+  rrf_k: 60
+  rerank_enabled: true
+  final_top_n: 10         # coverage answers often hinge on multiple clauses
+
+generation:
+  temperature: 0.0
+  max_tokens: 2200
+  citations_required: true
+  groundedness_check: true
+  confidence_threshold_review: 0.60
+  confidence_threshold_refuse: 0.35

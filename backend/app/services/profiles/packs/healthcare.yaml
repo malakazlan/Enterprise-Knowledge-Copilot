@@ -1,0 +1,30 @@
+# Healthcare — clinical guidelines, protocols, SOPs. Safety-first refusal posture.
+name: healthcare
+display_name: Healthcare & Life Sciences
+description: >-
+  Tuned for clinical guidelines, care protocols, drug information, and hospital
+  SOPs. The most conservative refusal posture of any pack: when grounding is
+  weak the system declines and routes to human review rather than guessing.
+industry: healthcare
+
+chunking:
+  strategy: semantic
+  chunk_size: 900         # protocol steps and dosage context stay intact
+  chunk_overlap: 120
+  respect_page_boundaries: true
+
+retrieval:
+  dense_top_k: 40         # medical phrasing varies; semantic recall matters
+  sparse_top_k: 30        # drug names and codes still need exact matching
+  fusion: rrf
+  rrf_k: 60
+  rerank_enabled: true
+  final_top_n: 8
+
+generation:
+  temperature: 0.0
+  max_tokens: 2000
+  citations_required: true
+  groundedness_check: true
+  confidence_threshold_review: 0.70   # strictest review gate — patient safety
+  confidence_threshold_refuse: 0.45   # refuse readily; a wrong answer can harm

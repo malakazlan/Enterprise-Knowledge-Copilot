@@ -1,0 +1,30 @@
+# Finance — filings, reports, standards. Numeric fidelity and exact terminology.
+name: finance
+display_name: Finance & Banking
+description: >-
+  Tuned for financial reports, filings, accounting standards, and risk policies.
+  Lexical search weighted up for tickers, standards (IFRS, GAAP), and figures;
+  zero-temperature answers with strict grounding.
+industry: finance
+
+chunking:
+  strategy: semantic
+  chunk_size: 1000        # keeps tables and their surrounding narrative together
+  chunk_overlap: 100
+  respect_page_boundaries: true
+
+retrieval:
+  dense_top_k: 30
+  sparse_top_k: 45        # tickers, standard codes, and figures are exact-match wins
+  fusion: rrf
+  rrf_k: 60
+  rerank_enabled: true
+  final_top_n: 8
+
+generation:
+  temperature: 0.0        # numbers must never be paraphrased creatively
+  max_tokens: 2000
+  citations_required: true
+  groundedness_check: true
+  confidence_threshold_review: 0.60
+  confidence_threshold_refuse: 0.35

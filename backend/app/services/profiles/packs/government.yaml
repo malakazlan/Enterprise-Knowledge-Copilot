@@ -1,0 +1,36 @@
+# Government — regulations, directives, public records. Sovereignty and audit.
+name: government
+display_name: Government & Public Sector
+description: >-
+  Tuned for regulations, directives, procedures, and public records. Designed
+  for air-gapped deployments with local providers; strict citations so every
+  answer is traceable for audit and FOIA-style accountability.
+industry: government
+
+chunking:
+  strategy: semantic
+  chunk_size: 1000
+  chunk_overlap: 120
+  respect_page_boundaries: true
+
+retrieval:
+  dense_top_k: 35
+  sparse_top_k: 40        # statute/regulation numbers are exact-match critical
+  fusion: rrf
+  rrf_k: 60
+  rerank_enabled: true
+  final_top_n: 10         # regulatory answers often span several provisions
+
+generation:
+  temperature: 0.0
+  max_tokens: 2500
+  citations_required: true
+  groundedness_check: true
+  confidence_threshold_review: 0.65
+  confidence_threshold_refuse: 0.40
+
+providers:
+  # Air-gap-friendly by default: never silently call a cloud API.
+  parser: local
+  embedder: local
+  llm: local
