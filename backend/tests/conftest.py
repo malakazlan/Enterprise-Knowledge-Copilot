@@ -25,6 +25,7 @@ os.environ.update(
         "OCR_PROVIDER": "rapidocr",
         "EMBEDDING_DIMENSION": "384",
         "AUTO_MIGRATE": "false",
+        "RATE_LIMIT_ENABLED": "false",
     }
 )
 

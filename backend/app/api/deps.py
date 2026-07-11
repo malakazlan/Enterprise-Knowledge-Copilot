@@ -17,10 +17,11 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import AuthenticationError, PermissionDeniedError
 from app.core.security import decode_token
 from app.db.session import get_db
@@ -126,3 +127,12 @@ def require_principal_roles(*roles: UserRole) -> Callable[[Principal], Awaitable
         return principal
 
     return _guard
+
+
+async def limit_query_rate(request: Request, principal: CurrentPrincipal) -> None:
+    """Per-principal rate limit for query/search endpoints."""
+    from app.core.ratelimit import check_query_rate, query_rate_key
+
+    if not settings.rate_limit_enabled:
+        return
+    check_query_rate(query_rate_key(request, principal))

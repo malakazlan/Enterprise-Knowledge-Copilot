@@ -44,6 +44,10 @@ function storeTokens(pair: TokenPair): void {
   sessionStorage.setItem(REFRESH_KEY, pair.refresh_token);
 }
 
+export function adoptTokens(access: string, refresh: string): void {
+  storeTokens({ access_token: access, refresh_token: refresh, token_type: "bearer" });
+}
+
 export function clearTokens(): void {
   sessionStorage.removeItem(ACCESS_KEY);
   sessionStorage.removeItem(REFRESH_KEY);
@@ -302,3 +306,10 @@ export const addCollectionMember = (id: string, email: string): Promise<Collecti
 
 export const removeCollectionMember = (id: string, userId: string): Promise<void> =>
   request<void>(`/collections/${id}/members/${userId}`, { method: "DELETE" });
+
+// ---- sso ----
+
+export const ssoStatus = (): Promise<{ enabled: boolean; provider: string }> =>
+  request<{ enabled: boolean; provider: string }>("/auth/oidc/status");
+
+export const SSO_LOGIN_URL = `${V1}/auth/oidc/login`;

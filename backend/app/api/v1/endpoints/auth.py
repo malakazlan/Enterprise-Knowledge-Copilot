@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.exceptions import AuthenticationError
+from app.core.ratelimit import limit_auth
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.schemas.auth import LoginRequest, TokenPair, TokenRefreshRequest
 from app.schemas.user import UserCreate, UserRead
@@ -20,6 +21,7 @@ router = APIRouter(tags=["auth"])
     "/register",
     response_model=UserRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(limit_auth)],
     summary="Register a new user",
 )
 async def register(payload: UserCreate, db: DbSession) -> UserRead:
@@ -27,7 +29,12 @@ async def register(payload: UserCreate, db: DbSession) -> UserRead:
     return UserRead.model_validate(user)
 
 
-@router.post("/login", response_model=TokenPair, summary="Exchange credentials for tokens")
+@router.post(
+    "/login",
+    response_model=TokenPair,
+    dependencies=[Depends(limit_auth)],
+    summary="Exchange credentials for tokens",
+)
 async def login(payload: LoginRequest, db: DbSession) -> TokenPair:
     user = await UserService(db).authenticate(payload.email, payload.password)
     if user is None:

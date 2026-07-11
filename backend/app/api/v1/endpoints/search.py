@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.api.deps import CurrentPrincipal, DbSession
+from app.api.deps import CurrentPrincipal, DbSession, limit_query_rate
 from app.schemas.search import SearchRequest, SearchResponse, SearchResultItem
 from app.services.access import allowed_document_ids, restrict_requested_ids
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
 from app.services.retrieval.service import RetrievalService
 
-router = APIRouter(tags=["search"])
+router = APIRouter(tags=["search"], dependencies=[Depends(limit_query_rate)])
 
 
 @router.post("", response_model=SearchResponse, summary="Hybrid search (dense + BM25 + rerank)")

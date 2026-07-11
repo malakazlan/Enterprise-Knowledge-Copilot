@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { ApiError, login, register } from "@/lib/api";
+import { adoptTokens, ApiError, login, register, SSO_LOGIN_URL, ssoStatus } from "@/lib/api";
 import { applyStoredTheme } from "@/components/shell";
 import { Button, Field } from "@/components/ui";
 
@@ -15,10 +15,24 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sso, setSso] = useState<{ enabled: boolean; provider: string } | null>(null);
 
   useEffect(() => {
     applyStoredTheme();
-  }, []);
+    // SSO hands tokens back in the URL fragment (kept out of server logs).
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const access = params.get("sso_access");
+    const refresh = params.get("sso_refresh");
+    if (access && refresh) {
+      adoptTokens(access, refresh);
+      window.history.replaceState(null, "", window.location.pathname);
+      router.replace("/ask");
+      return;
+    }
+    ssoStatus()
+      .then(setSso)
+      .catch(() => setSso(null));
+  }, [router]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -84,6 +98,22 @@ export default function LoginPage() {
             {busy ? "…" : mode === "login" ? "Sign in" : "Create account"}
           </Button>
         </form>
+
+        {sso?.enabled && (
+          <>
+            <div className="my-4 flex items-center gap-3 text-[11px] text-ink-3">
+              <span className="h-px flex-1 bg-line" />
+              or
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            <a
+              href={SSO_LOGIN_URL}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-line-strong bg-canvas px-3.5 py-2 text-[13.5px] font-medium shadow-sm transition-colors hover:bg-subtle"
+            >
+              Continue with {sso.provider}
+            </a>
+          </>
+        )}
 
         <p className="mt-4.5 text-center text-xs leading-relaxed text-ink-3">
           {mode === "login" ? (
