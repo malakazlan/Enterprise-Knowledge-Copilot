@@ -46,14 +46,19 @@ dependencies = [
     "pypdf>=5.0",
 ]
 
+[project.scripts]
+ekc-mcp = "app.mcp.server:main"
+
 [project.optional-dependencies]
 # CPU-tier OCR for scanned PDFs/images (activated via OCR_PROVIDER=rapidocr).
+mcp = ["mcp>=1.9"]
 ocr = [
     "rapidocr>=3.0",
     "onnxruntime>=1.20",
     "pypdfium2>=4.30",
 ]
 dev = [
+    "mcp>=1.9",
     "ruff>=0.7",
     "mypy>=1.11",
     "pytest>=8.3",

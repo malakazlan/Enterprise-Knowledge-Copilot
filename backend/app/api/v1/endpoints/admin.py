@@ -7,14 +7,14 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy import Select, func, select
 
-from app.api.deps import DbSession, require_roles
+from app.api.deps import DbSession, require_principal_roles
 from app.models.apikey import ApiKey
 from app.models.document import Document, DocumentChunk, IngestionStatus
 from app.models.querylog import QueryLog, ReviewStatus
 from app.models.user import User, UserRole
 from app.schemas.review import AdminStats
 
-router = APIRouter(tags=["admin"], dependencies=[Depends(require_roles(UserRole.ADMIN))])
+router = APIRouter(tags=["admin"], dependencies=[Depends(require_principal_roles(UserRole.ADMIN))])
 
 
 @router.get("/stats", response_model=AdminStats, summary="Deployment statistics")
