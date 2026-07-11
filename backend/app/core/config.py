@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     # single-node deployments; set false when migrations are run externally
     # (e.g. a deploy job in multi-replica setups).
     auto_migrate: bool = True
+    # Request rate limits (per replica): auth is per client IP, query/search
+    # per authenticated principal.
+    rate_limit_enabled: bool = True
+    rate_limit_auth_per_minute: int = 20
+    rate_limit_query_per_minute: int = 120
     # Directory of the built web app (Next.js static export). When unset, the
     # repo-relative frontend/out is used if present; the console is the fallback.
     frontend_dist: str | None = None

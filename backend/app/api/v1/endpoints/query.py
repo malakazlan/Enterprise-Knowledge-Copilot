@@ -9,10 +9,10 @@ import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import CurrentPrincipal, DbSession, Principal
+from app.api.deps import CurrentPrincipal, DbSession, Principal, limit_query_rate
 from app.api.v1.endpoints.threads import DEFAULT_TITLE, get_owned_thread
 from app.core.exceptions import PermissionDeniedError
 from app.schemas.query import (
@@ -27,7 +27,7 @@ from app.services.generation.service import GenerationService
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
 from app.services.webhooks import deliver, subscribed
 
-router = APIRouter(tags=["query"])
+router = APIRouter(tags=["query"], dependencies=[Depends(limit_query_rate)])
 
 _SNIPPET_CHARS = 300
 
