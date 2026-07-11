@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     vector_store_provider: str = "memory"
     sparse_provider: str = "local-bm25"
     reranker_provider: str = "lexical"
+    # "extractive" answers by quoting the most relevant retrieved sentences —
+    # fully offline. LLM providers (anthropic/openai/ollama) swap in via config.
+    llm_provider: str = "extractive"
     embedding_dimension: int = 384
     chunk_size: int = 1200
     chunk_overlap: int = 150
