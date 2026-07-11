@@ -134,3 +134,36 @@ async def test_every_query_is_audited(
     assert answered_log.citations, "citations must be recorded for audit"
     assert refused_log.refusal_reason == "insufficient_evidence"
     assert str(answered_log.id) == answered.json()["query_id"]
+
+
+async def test_batch_query(
+    client: AsyncClient, make_user: MakeUser, auth_headers: AuthHeaders
+) -> None:
+    await make_user("admin@example.com", role=UserRole.ADMIN)
+    headers = await auth_headers("admin@example.com")
+    upload = await client.post(
+        "/api/v1/documents",
+        headers=headers,
+        files={"file": ("s.md", b"# Safety\n\nAll workers must wear a helmet.", "text/markdown")},
+    )
+    assert upload.status_code == 201
+
+    resp = await client.post(
+        "/api/v1/query/batch",
+        headers=headers,
+        json={"queries": ["Who must wear a helmet?", "quantum banana smoothie recipe"]},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert body["answered"] == 1 and body["refused"] == 1
+    assert body["results"][0]["answered"] is True
+    assert body["results"][1]["answered"] is False
+
+    # Bounds: empty and oversized batches are rejected.
+    empty = await client.post("/api/v1/query/batch", headers=headers, json={"queries": []})
+    assert empty.status_code == 422
+    too_many = await client.post(
+        "/api/v1/query/batch", headers=headers, json={"queries": ["q"] * 26}
+    )
+    assert too_many.status_code == 422

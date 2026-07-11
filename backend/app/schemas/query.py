@@ -44,3 +44,17 @@ class QueryResponse(BaseModel):
     sources_considered: int
     retrieval_took_ms: float
     took_ms: float
+
+
+class BatchQueryRequest(BaseModel):
+    queries: list[str] = Field(min_length=1, max_length=25)
+    profile: str | None = None
+    top_k: int | None = Field(default=None, ge=1, le=50)
+
+
+class BatchQueryResponse(BaseModel):
+    results: list[QueryResponse]
+    total: int
+    answered: int
+    refused: int
+    took_ms: float

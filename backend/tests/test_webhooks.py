@@ -35,7 +35,9 @@ async def captured() -> AsyncIterator[list[httpx.Request]]:
     webhook_service._transport = None
 
 
-async def _admin(client: AsyncClient, make_user: MakeUser, auth_headers: AuthHeaders) -> dict[str, str]:
+async def _admin(
+    client: AsyncClient, make_user: MakeUser, auth_headers: AuthHeaders
+) -> dict[str, str]:
     await make_user("admin@example.com", role=UserRole.ADMIN)
     return await auth_headers("admin@example.com")
 
