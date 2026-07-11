@@ -10,10 +10,12 @@ _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
 _MARKER_RE = re.compile(r"\[(\d+)\]")
 _LEADING_MARKERS_RE = re.compile(r"^(?:\s*\[\d+\])+")
 
-# Minimal English stopword set — enough to keep function words from inflating
-# lexical-overlap scores without dragging in an NLP dependency.
+# Minimal English stopword set — enough to keep function words (including
+# interrogatives, which questions are full of) from inflating lexical-overlap
+# scores without dragging in an NLP dependency.
 _STOPWORDS = frozenset(
     {
+        # articles / conjunctions / prepositions
         "the",
         "a",
         "an",
@@ -25,6 +27,23 @@ _STOPWORDS = frozenset(
         "in",
         "on",
         "for",
+        "with",
+        "as",
+        "at",
+        "by",
+        "from",
+        "into",
+        "about",
+        "over",
+        "under",
+        "between",
+        "per",
+        "than",
+        "then",
+        "if",
+        "so",
+        "such",
+        # be / auxiliaries
         "is",
         "are",
         "was",
@@ -32,18 +51,7 @@ _STOPWORDS = frozenset(
         "be",
         "been",
         "being",
-        "it",
-        "its",
-        "this",
-        "that",
-        "these",
-        "those",
-        "with",
-        "as",
-        "at",
-        "by",
-        "from",
-        "into",
+        "am",
         "will",
         "shall",
         "can",
@@ -56,6 +64,15 @@ _STOPWORDS = frozenset(
         "has",
         "have",
         "had",
+        "should",
+        "would",
+        # pronouns / determiners
+        "it",
+        "its",
+        "this",
+        "that",
+        "these",
+        "those",
         "they",
         "them",
         "their",
@@ -63,6 +80,33 @@ _STOPWORDS = frozenset(
         "which",
         "who",
         "whom",
+        "whose",
+        "you",
+        "your",
+        "we",
+        "our",
+        "us",
+        "i",
+        "me",
+        "my",
+        "he",
+        "she",
+        "his",
+        "her",
+        "him",
+        # interrogatives / quantifiers
+        "what",
+        "when",
+        "where",
+        "why",
+        "how",
+        "many",
+        "much",
+        "also",
+        "just",
+        "very",
+        "more",
+        "most",
     }
 )
 
