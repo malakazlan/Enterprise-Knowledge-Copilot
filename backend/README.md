@@ -1,21 +1,26 @@
 # Backend — Enterprise Knowledge Copilot
 
-FastAPI service for ingestion, hybrid retrieval, and grounded generation.
-See the [project README](../README.md) for the full architecture and roadmap.
+FastAPI service: ingestion, hybrid retrieval, grounded generation, governance,
+webhooks, connectors, SSO, and the MCP server. See the
+[project README](../README.md) for the product overview.
 
 ## Layout
 
 ```
 app/
-├── main.py            Application factory + ASGI entrypoint
-├── api/v1/            Versioned HTTP API (routers + endpoints)
-├── core/              Config, logging, exceptions, metrics, middleware
-├── models/            SQLAlchemy ORM models            (phase 1)
-├── schemas/           Pydantic request/response schemas (phase 1)
-├── services/          Ingestion, retrieval, generation (phases 2–4)
-├── db/                Async engine + session           (phase 1)
-└── workers/           Celery tasks                     (phase 2)
-tests/                 Pytest suite
+├── main.py            Application factory; serves API + built web app
+├── api/v1/            Versioned HTTP API (auth, documents, query, threads,
+│                      collections, reviews, evals, webhooks, connectors, sso)
+├── core/              Config, security, rate limiting, logging, middleware
+├── models/            SQLAlchemy ORM models
+├── schemas/           Pydantic request/response schemas
+├── services/          Ingestion, retrieval, generation, access control,
+│                      webhooks, SSO, evals
+├── mcp/               MCP server (`ekc-mcp` console script)
+├── db/                Async engine + session
+└── workers/           Celery tasks
+alembic/               Migrations (auto-applied on startup)
+tests/                 Hermetic pytest suite (offline providers forced)
 ```
 
 ## Local development
@@ -23,16 +28,20 @@ tests/                 Pytest suite
 ```bash
 python -m venv .venv
 # Windows:  .venv\Scripts\activate      POSIX: source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,ocr,office,local,mcp]"
 cp .env.example .env
 
 uvicorn app.main:app --reload      # http://localhost:8000/docs
 ```
 
+Optional extras: `ocr` (scanned PDFs/images), `office` (DOCX/PPTX/XLSX),
+`local` (ONNX embeddings + cross-encoder reranker), `mcp` (agent tools).
+
 ## Quality gates
 
 ```bash
-ruff check app tests      # lint
-mypy app                  # type-check
-pytest                    # tests
+ruff check app tests        # lint
+ruff format --check app tests
+mypy app                    # strict type-check
+pytest                      # hermetic tests
 ```
