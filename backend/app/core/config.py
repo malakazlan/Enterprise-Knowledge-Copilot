@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     # "extractive" answers by quoting the most relevant retrieved sentences —
     # fully offline. LLM providers (anthropic/openai/ollama) swap in via config.
     llm_provider: str = "extractive"
+
+    # --- Qdrant (when vector_store_provider=qdrant) ---
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: SecretStr | None = None
+    qdrant_collection: str = "ekc_chunks"
     embedding_dimension: int = 384
     chunk_size: int = 1200
     chunk_overlap: int = 150

@@ -40,6 +40,16 @@ def get_vector_store() -> VectorStore:
     provider = settings.vector_store_provider
     if provider == "memory":
         return InMemoryVectorStore()
+    if provider == "qdrant":
+        from app.services.vectorstore_qdrant import QdrantVectorStore
+
+        api_key = settings.qdrant_api_key
+        return QdrantVectorStore(
+            url=settings.qdrant_url,
+            api_key=api_key.get_secret_value() if api_key else None,
+            collection=settings.qdrant_collection,
+            dimension=settings.embedding_dimension,
+        )
     raise ServiceUnavailableError(f"Vector store provider '{provider}' is not configured.")
 
 

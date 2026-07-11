@@ -37,6 +37,8 @@ dependencies = [
     "pwdlib[argon2]>=0.2",
     # Config & profiles
     "pyyaml>=6.0",
+    # Vector store (default production adapter)
+    "qdrant-client>=1.12",
 ]
 
 [project.optional-dependencies]
