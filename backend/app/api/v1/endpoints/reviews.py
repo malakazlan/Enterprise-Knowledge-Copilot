@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy import select
 
 from app.api.deps import DbSession, Principal, require_principal_roles
@@ -18,6 +18,7 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.models.querylog import QueryLog, ReviewStatus
 from app.models.user import UserRole
 from app.schemas.review import ReviewItem, ReviewResolve
+from app.services.webhooks import deliver, subscribed
 
 router = APIRouter(tags=["reviews"])
 
@@ -46,7 +47,11 @@ async def list_reviews(
     summary="Approve or reject a flagged answer",
 )
 async def resolve_review(
-    payload: ReviewResolve, db: DbSession, reviewer: Reviewer, query_id: uuid.UUID
+    payload: ReviewResolve,
+    db: DbSession,
+    reviewer: Reviewer,
+    query_id: uuid.UUID,
+    background: BackgroundTasks,
 ) -> ReviewItem:
     log = await db.get(QueryLog, query_id)
     if log is None or log.review_status is None:
@@ -62,4 +67,20 @@ async def resolve_review(
     log.review_note = payload.note
     await db.commit()
     await db.refresh(log)
+
+    targets = await subscribed(db, "review.resolved")
+    if targets:
+        background.add_task(
+            deliver,
+            "review.resolved",
+            targets,
+            {
+                "query_id": str(log.id),
+                "query": log.query,
+                "resolution": log.review_status.value if log.review_status else None,
+                "note": log.review_note,
+                "confidence": log.confidence,
+                "profile": log.profile,
+            },
+        )
     return ReviewItem.model_validate(log)

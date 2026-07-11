@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile, status
 
 from app.api.deps import (
     CurrentPrincipal,
@@ -16,11 +16,13 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationAppError
+from app.models.document import IngestionStatus
 from app.models.user import UserRole
 from app.schemas.document import ChunkRead, DocumentRead, DocumentWithJob, IngestionJobRead
 from app.services.documents import DocumentService
 from app.services.ingestion.factory import get_parser, get_vector_store
 from app.services.ingestion.pipeline import IngestionError, IngestionPipeline
+from app.services.webhooks import deliver, subscribed
 
 router = APIRouter(tags=["documents"])
 
@@ -39,6 +41,7 @@ async def upload_document(
     storage: Storage,
     uploader: Uploader,
     file: Annotated[UploadFile, File(...)],
+    background: BackgroundTasks,
 ) -> DocumentWithJob:
     data = await file.read()
     if not data:
@@ -73,6 +76,21 @@ async def upload_document(
         from app.workers.tasks import run_ingestion
 
         run_ingestion.delay(str(job.id))
+
+    event = "document.failed" if document.status == IngestionStatus.FAILED else "document.ingested"
+    targets = await subscribed(db, event)
+    if targets:
+        background.add_task(
+            deliver,
+            event,
+            targets,
+            {
+                "document_id": str(document.id),
+                "filename": document.filename,
+                "status": document.status.value,
+                "error": document.error,
+            },
+        )
 
     return DocumentWithJob(
         document=DocumentRead.model_validate(document),

@@ -18,8 +18,10 @@ from app.models.document import (
 from app.models.evals import EvalCase, EvalDataset, EvalRun
 from app.models.querylog import QueryLog, ReviewStatus
 from app.models.user import User, UserRole
+from app.models.webhook import WEBHOOK_EVENTS, Webhook
 
 __all__ = [
+    "WEBHOOK_EVENTS",
     "ApiKey",
     "Document",
     "DocumentChunk",
@@ -34,4 +36,5 @@ __all__ = [
     "ReviewStatus",
     "User",
     "UserRole",
+    "Webhook",
 ]

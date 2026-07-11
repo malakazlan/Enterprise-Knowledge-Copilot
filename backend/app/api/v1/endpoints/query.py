@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from app.api.deps import CurrentPrincipal, DbSession
 from app.schemas.query import QueryCitation, QueryRequest, QueryResponse
 from app.services.generation.service import GenerationService
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
+from app.services.webhooks import deliver, subscribed
 
 router = APIRouter(tags=["query"])
 
@@ -21,7 +22,9 @@ _SNIPPET_CHARS = 300
     response_model=QueryResponse,
     summary="Ask a question; get a cited, confidence-scored answer",
 )
-async def query(payload: QueryRequest, db: DbSession, principal: CurrentPrincipal) -> QueryResponse:
+async def query(
+    payload: QueryRequest, db: DbSession, principal: CurrentPrincipal, background: BackgroundTasks
+) -> QueryResponse:
     profile = get_profile(payload.profile or DEFAULT_PROFILE)
     outcome = await GenerationService(db).answer(
         payload.query,
@@ -31,6 +34,30 @@ async def query(payload: QueryRequest, db: DbSession, principal: CurrentPrincipa
         document_ids=payload.document_ids,
         top_k=payload.top_k,
     )
+    event = (
+        "query.refused"
+        if not outcome.answered
+        else "query.needs_review"
+        if outcome.needs_review
+        else None
+    )
+    if event:
+        targets = await subscribed(db, event)
+        if targets:
+            background.add_task(
+                deliver,
+                event,
+                targets,
+                {
+                    "query_id": str(outcome.query_id),
+                    "query": payload.query,
+                    "profile": profile.name,
+                    "confidence": outcome.confidence,
+                    "refusal_reason": outcome.refusal_reason,
+                    "needs_review": outcome.needs_review,
+                },
+            )
+
     return QueryResponse(
         query_id=outcome.query_id,
         query=payload.query,

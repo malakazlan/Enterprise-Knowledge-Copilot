@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends
+from fastapi import status as http_status
 from sqlalchemy import Select, func, select
 
 from app.api.deps import DbSession, require_principal_roles
+from app.core.exceptions import NotFoundError
 from app.models.apikey import ApiKey
 from app.models.document import Document, DocumentChunk, IngestionStatus
 from app.models.querylog import QueryLog, ReviewStatus
 from app.models.user import User, UserRole
+from app.models.webhook import Webhook
 from app.schemas.review import AdminStats
+from app.schemas.webhook import WebhookCreate, WebhookRead
 
 router = APIRouter(tags=["admin"], dependencies=[Depends(require_principal_roles(UserRole.ADMIN))])
 
@@ -54,3 +59,48 @@ async def stats(db: DbSession) -> AdminStats:
         ),
         users_total=await count(select(func.count(User.id))),
     )
+
+
+def _webhook_read(hook: Webhook) -> WebhookRead:
+    read = WebhookRead.model_validate(hook)
+    read.has_secret = hook.secret is not None
+    return read
+
+
+@router.post(
+    "/webhooks",
+    response_model=WebhookRead,
+    status_code=http_status.HTTP_201_CREATED,
+    summary="Register an outbound webhook",
+)
+async def create_webhook(payload: WebhookCreate, db: DbSession) -> WebhookRead:
+    hook = Webhook(
+        id=uuid.uuid4(),
+        url=str(payload.url),
+        secret=payload.secret,
+        events=payload.events,
+        is_active=True,
+    )
+    db.add(hook)
+    await db.commit()
+    await db.refresh(hook)
+    return _webhook_read(hook)
+
+
+@router.get("/webhooks", response_model=list[WebhookRead], summary="List webhooks")
+async def list_webhooks(db: DbSession) -> list[WebhookRead]:
+    result = await db.execute(select(Webhook).order_by(Webhook.created_at))
+    return [_webhook_read(hook) for hook in result.scalars().all()]
+
+
+@router.delete(
+    "/webhooks/{webhook_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    summary="Delete a webhook",
+)
+async def delete_webhook(db: DbSession, webhook_id: uuid.UUID) -> None:
+    hook = await db.get(Webhook, webhook_id)
+    if hook is None:
+        raise NotFoundError("Webhook not found.")
+    await db.delete(hook)
+    await db.commit()

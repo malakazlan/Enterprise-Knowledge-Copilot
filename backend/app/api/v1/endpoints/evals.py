@@ -27,9 +27,7 @@ from app.schemas.evals import (
 from app.services.evals.service import EvalService
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
 
-router = APIRouter(
-    tags=["evals"], dependencies=[Depends(require_principal_roles(UserRole.ADMIN))]
-)
+router = APIRouter(tags=["evals"], dependencies=[Depends(require_principal_roles(UserRole.ADMIN))])
 
 AdminPrincipal = Annotated[Principal, Depends(require_principal_roles(UserRole.ADMIN))]
 
