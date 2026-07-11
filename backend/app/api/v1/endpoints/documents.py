@@ -7,10 +7,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 
-from app.api.deps import CurrentUser, DbSession, Storage, require_roles
+from app.api.deps import (
+    CurrentPrincipal,
+    DbSession,
+    Principal,
+    Storage,
+    require_principal_roles,
+)
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationAppError
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 from app.schemas.document import DocumentRead, DocumentWithJob, IngestionJobRead
 from app.services.documents import DocumentService
 from app.services.ingestion.factory import get_vector_store
@@ -18,8 +24,8 @@ from app.services.ingestion.pipeline import IngestionError, IngestionPipeline
 
 router = APIRouter(tags=["documents"])
 
-Uploader = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.REVIEWER))]
-Admin = Annotated[User, Depends(require_roles(UserRole.ADMIN))]
+Uploader = Annotated[Principal, Depends(require_principal_roles(UserRole.ADMIN, UserRole.REVIEWER))]
+Admin = Annotated[Principal, Depends(require_principal_roles(UserRole.ADMIN))]
 
 
 @router.post(
@@ -47,7 +53,7 @@ async def upload_document(
         filename=file.filename or "upload",
         content_type=file.content_type,
         data=data,
-        uploaded_by=uploader.id,
+        uploaded_by=uploader.user_id,
     )
 
     if settings.ingestion_eager:
@@ -73,7 +79,7 @@ async def upload_document(
 async def list_documents(
     db: DbSession,
     storage: Storage,
-    _current_user: CurrentUser,
+    _principal: CurrentPrincipal,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[DocumentRead]:
@@ -83,7 +89,7 @@ async def list_documents(
 
 @router.get("/{document_id}", response_model=DocumentRead, summary="Get a document")
 async def get_document(
-    db: DbSession, storage: Storage, _current_user: CurrentUser, document_id: uuid.UUID
+    db: DbSession, storage: Storage, _principal: CurrentPrincipal, document_id: uuid.UUID
 ) -> DocumentRead:
     document = await DocumentService(db, storage).get(document_id)
     if document is None:
@@ -97,7 +103,7 @@ async def get_document(
     summary="List a document's ingestion jobs",
 )
 async def list_document_jobs(
-    db: DbSession, storage: Storage, _current_user: CurrentUser, document_id: uuid.UUID
+    db: DbSession, storage: Storage, _principal: CurrentPrincipal, document_id: uuid.UUID
 ) -> list[IngestionJobRead]:
     service = DocumentService(db, storage)
     if await service.get(document_id) is None:

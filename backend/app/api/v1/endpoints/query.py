@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentPrincipal, DbSession
 from app.schemas.query import QueryCitation, QueryRequest, QueryResponse
 from app.services.generation.service import GenerationService
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
@@ -21,12 +21,13 @@ _SNIPPET_CHARS = 300
     response_model=QueryResponse,
     summary="Ask a question; get a cited, confidence-scored answer",
 )
-async def query(payload: QueryRequest, db: DbSession, current_user: CurrentUser) -> QueryResponse:
+async def query(payload: QueryRequest, db: DbSession, principal: CurrentPrincipal) -> QueryResponse:
     profile = get_profile(payload.profile or DEFAULT_PROFILE)
     outcome = await GenerationService(db).answer(
         payload.query,
         profile,
-        user_id=current_user.id,
+        user_id=principal.user_id,
+        api_key_id=principal.api_key_id,
         document_ids=payload.document_ids,
         top_k=payload.top_k,
     )
