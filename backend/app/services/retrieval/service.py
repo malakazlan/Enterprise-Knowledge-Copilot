@@ -66,7 +66,11 @@ class RetrievalService:
         id_filter = [str(document_id) for document_id in document_ids] if document_ids else None
 
         # --- Dense channel ---
-        query_vector = (await self.embedder.embed([query]))[0]
+        embed_query = getattr(self.embedder, "embed_query", None)
+        if embed_query is not None:
+            query_vector = await embed_query(query)
+        else:
+            query_vector = (await self.embedder.embed([query]))[0]
         dense_matches = await self.vector_store.query(
             query_vector,
             top_k=config.dense_top_k,

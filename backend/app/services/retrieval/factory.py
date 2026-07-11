@@ -25,4 +25,10 @@ def get_reranker() -> Reranker | None:
         return LexicalBM25Reranker()
     if provider == "none":
         return None
+    if provider == "onnx":
+        from app.services.retrieval.rerank import OnnxCrossEncoderReranker
+
+        return OnnxCrossEncoderReranker(
+            model=settings.reranker_model, cache_dir=settings.model_cache_dir
+        )
     raise ServiceUnavailableError(f"Reranker provider '{provider}' is not configured.")

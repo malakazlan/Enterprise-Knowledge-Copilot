@@ -52,6 +52,8 @@ ekc-mcp = "app.mcp.server:main"
 [project.optional-dependencies]
 # CPU-tier OCR for scanned PDFs/images (activated via OCR_PROVIDER=rapidocr).
 mcp = ["mcp>=1.9"]
+# Local neural embeddings + cross-encoder reranking on CPU (ONNX).
+local = ["fastembed>=0.8"]
 ocr = [
     "rapidocr>=3.0",
     "onnxruntime>=1.20",
