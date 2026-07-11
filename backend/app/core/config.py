@@ -8,10 +8,10 @@ precedence over ``.env`` so container/orchestrator config wins in production.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["local", "dev", "staging", "production"]
 
@@ -47,22 +47,61 @@ class Settings(BaseSettings):
     refresh_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
     # --- CORS ---
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # NoDecode: accept a plain comma-separated string from .env (the validator
+    # splits it) instead of pydantic-settings' default JSON decoding.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:5173"]
+    )
 
     # --- Datastores ---
     database_url: str = "postgresql+asyncpg://ekc:ekc@localhost:5432/ekc"
     redis_url: str = "redis://localhost:6379/0"
+    # Apply Alembic migrations on startup. The right default for self-hosted
+    # single-node deployments; set false when migrations are run externally
+    # (e.g. a deploy job in multi-replica setups).
+    auto_migrate: bool = True
+    # Directory of the built web app (Next.js static export). When unset, the
+    # repo-relative frontend/out is used if present; the console is the fallback.
+    frontend_dist: str | None = None
 
     # --- Storage ---
     storage_dir: str = "./storage"
     max_upload_bytes: int = 50 * 1024 * 1024  # 50 MiB
 
-    # --- Ingestion ---
+    # --- Ingestion & retrieval ---
     # Provider selection; local/hashing/memory keep the pipeline runnable with
     # zero external services. Real providers plug in behind the same ports.
     parser_provider: str = "local"
     embedder_provider: str = "hashing"
     vector_store_provider: str = "memory"
+    sparse_provider: str = "local-bm25"
+    reranker_provider: str = "lexical"
+    # CPU-tier OCR for scanned pages/images ("rapidocr" | "none"). A GPU-tier
+    # VLM OCR adapter (served via vLLM) plugs into the same port later.
+    ocr_provider: str = "rapidocr"
+    ocr_render_scale: float = 3.0  # ~216 dpi page rasterization
+    ocr_min_line_confidence: float = 0.5
+    # "extractive" answers by quoting the most relevant retrieved sentences —
+    # fully offline. LLM providers (anthropic/openai/ollama) swap in via config.
+    llm_provider: str = "extractive"
+
+    # --- Qdrant (when vector_store_provider=qdrant) ---
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: SecretStr | None = None
+    qdrant_collection: str = "ekc_chunks"
+
+    # --- LLM providers (when llm_provider is anthropic/openai/ollama) ---
+    anthropic_api_key: SecretStr | None = None
+    anthropic_model: str = "claude-opus-4-8"
+    openai_api_key: SecretStr | None = None
+    openai_base_url: str | None = None
+    openai_model: str = "gpt-4o-mini"
+    # Used when embedder_provider=openai; output is truncated to
+    # embedding_dimension via the API's `dimensions` parameter.
+    openai_embedding_model: str = "text-embedding-3-small"
+    # Ollama/vLLM/LM Studio expose an OpenAI-compatible endpoint.
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = "llama3.1"
     embedding_dimension: int = 384
     chunk_size: int = 1200
     chunk_overlap: int = 150

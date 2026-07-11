@@ -18,9 +18,15 @@ async def test_register_login_me_flow(client: AsyncClient) -> None:
     assert reg.status_code == 201, reg.text
     body = reg.json()
     assert body["email"] == "ann@example.com"
-    assert body["role"] == "user"
+    # Self-hosted bootstrap: the first account administers the deployment.
+    assert body["role"] == "admin"
     assert body["is_active"] is True
     assert "hashed_password" not in body
+
+    second = await client.post(
+        REGISTER, json={"email": "second@example.com", "password": "supersecret"}
+    )
+    assert second.json()["role"] == "user"
 
     login = await client.post(LOGIN, json={"email": "ann@example.com", "password": "supersecret"})
     assert login.status_code == 200

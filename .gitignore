@@ -70,6 +70,7 @@ Thumbs.db
 # ---- Internal design docs & agent config (local only for now) ----
 /docs/
 /CLAUDE.md
+/design/
 
 # ---- Alembic local ----
 backend/alembic/versions/*.pyc

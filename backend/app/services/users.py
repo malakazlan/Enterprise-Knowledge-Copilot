@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError
@@ -33,10 +33,15 @@ class UserService:
         )
         return result.scalars().all()
 
-    async def create(self, data: UserCreate, *, role: UserRole = UserRole.USER) -> User:
+    async def create(self, data: UserCreate, *, role: UserRole | None = None) -> User:
         email = data.email.lower()
         if await self.get_by_email(email) is not None:
             raise ConflictError("A user with this email already exists.")
+
+        if role is None:
+            # Self-hosted bootstrap: the first account administers the deployment.
+            count = (await self.db.execute(select(func.count(User.id)))).scalar_one()
+            role = UserRole.ADMIN if count == 0 else UserRole.USER
 
         user = User(
             email=email,

@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise Knowledge Copilot</title>
+<!--
+  THE REGISTRY — self-contained console for the Enterprise Knowledge Copilot.
+  Deliberately a single file with zero external resources (no CDNs, no
+  webfonts, no build chain): it works air-gapped and its supply-chain attack
+  surface is this file alone. All dynamic content is rendered via
+  textContent / createElement — never innerHTML — so API data cannot inject
+  markup. Tokens live in sessionStorage (cleared when the tab closes).
+-->
+<style>
+  :root {
+    --paper:      #F4F2EC;
+    --paper-2:    #ECE9E0;
+    --paper-3:    #E3DFD3;
+    --ink:        #1D1B16;
+    --ink-soft:   #57534A;
+    --ink-faint:  #8A857A;
+    --hair:       #D6D2C4;
+    --verdigris:  #2E6B4F;
+    --verdigris-2:#1F553C;
+    --stamp:      #A63B27;
+    --amber:      #9A6D1B;
+    --mono: "Consolas", "SF Mono", "Cascadia Mono", "Courier New", monospace;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --shadow: 3px 3px 0 rgba(29, 27, 22, .10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--serif);
+    color: var(--ink);
+    background:
+      repeating-linear-gradient(180deg, transparent 0 27px, rgba(29,27,22,.035) 27px 28px),
+      radial-gradient(1200px 600px at 85% -10%, rgba(46,107,79,.07), transparent 60%),
+      var(--paper);
+    line-height: 1.55;
+  }
+  ::selection { background: var(--verdigris); color: var(--paper); }
+
+  /* ---------- primitives ---------- */
+  .k { font-family: var(--mono); font-size: .68rem; letter-spacing: .14em;
+       text-transform: uppercase; color: var(--ink-soft); }
+  .card {
+    background: var(--paper); border: 1px solid var(--ink);
+    box-shadow: var(--shadow); border-radius: 2px;
+  }
+  button {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .12em;
+    text-transform: uppercase; cursor: pointer; border-radius: 2px;
+    border: 1px solid var(--ink); background: var(--paper); color: var(--ink);
+    padding: .62rem 1.1rem; transition: transform .08s ease, box-shadow .08s ease;
+  }
+  button:hover:not(:disabled) { transform: translate(-1px,-1px); box-shadow: var(--shadow); }
+  button:active:not(:disabled) { transform: translate(0,0); box-shadow: none; }
+  button:disabled { opacity: .45; cursor: wait; }
+  button.primary { background: var(--verdigris); border-color: var(--verdigris-2); color: #F6F5EF; }
+  button.danger  { background: transparent; color: var(--stamp); border-color: var(--stamp); }
+  input[type=text], input[type=email], input[type=password], input[type=number], select {
+    width: 100%; padding: .66rem .8rem; font-family: var(--serif); font-size: .95rem;
+    color: var(--ink); background: #FBFAF6; border: 1px solid var(--hair); border-radius: 2px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--verdigris); outline-offset: 0; border-color: var(--verdigris); }
+  label.field { display: block; margin-bottom: .9rem; }
+  label.field .k { display: block; margin-bottom: .35rem; }
+  select { font-family: var(--mono); font-size: .78rem; letter-spacing: .06em; }
+  a { color: var(--verdigris-2); }
+
+  .badge { display: inline-block; font-family: var(--mono); font-size: .62rem;
+           letter-spacing: .1em; text-transform: uppercase; padding: .18rem .5rem;
+           border: 1px solid currentColor; border-radius: 2px; }
+  .badge.ok     { color: var(--verdigris-2); }
+  .badge.warn   { color: var(--amber); }
+  .badge.bad    { color: var(--stamp); }
+  .badge.dim    { color: var(--ink-faint); }
+
+  .stamp {
+    display: inline-block; font-family: var(--mono); font-weight: bold;
+    font-size: .7rem; letter-spacing: .22em; text-transform: uppercase;
+    border: 2px solid currentColor; padding: .3rem .8rem; border-radius: 2px;
+    transform: rotate(-2deg);
+  }
+
+  /* ---------- login ---------- */
+  #login-view { min-height: 100%; display: grid; place-items: center; padding: 2rem; }
+  .login-card { width: min(430px, 94vw); padding: 2.4rem 2.2rem; animation: rise .5s ease both; }
+  .brand-mark { font-family: var(--mono); font-size: .7rem; letter-spacing: .3em; color: var(--verdigris-2); }
+  .login-card h1 { font-size: 2.05rem; line-height: 1.15; font-weight: normal; margin: .6rem 0 .4rem; }
+  .login-card h1 em { font-style: italic; }
+  .login-sub { color: var(--ink-soft); font-size: .92rem; margin-bottom: 1.6rem; }
+  .login-tabs { display: flex; gap: 1.4rem; border-bottom: 1px solid var(--hair); margin-bottom: 1.3rem; }
+  .login-tabs .k { background: none; border: none; padding: .4rem 0; cursor: pointer; }
+  .login-tabs .k.active { color: var(--ink); border-bottom: 2px solid var(--verdigris); }
+  .form-error { color: var(--stamp); font-size: .85rem; min-height: 1.2rem; margin: .4rem 0 .8rem; }
+  .bootstrap-note { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px dashed var(--hair);
+                    font-size: .8rem; font-style: italic; color: var(--ink-faint); }
+
+  /* ---------- shell ---------- */
+  #console-view { display: none; min-height: 100%; }
+  #console-view.on { display: flex; flex-direction: column; }
+  header.top {
+    background: #22251F; color: #EDEBE2; display: flex; align-items: center;
+    gap: 1.4rem; padding: .8rem 1.4rem; border-bottom: 3px solid var(--verdigris);
+  }
+  header.top .wordmark { font-family: var(--mono); font-size: .74rem; letter-spacing: .26em; }
+  header.top .wordmark b { color: #9CC7B0; }
+  header.top .tagline { font-style: italic; font-size: .82rem; color: #A9A698; }
+  header.top .spacer { flex: 1; }
+  header.top select {
+    width: auto; background: #2C3028; color: #EDEBE2; border-color: #4A4E44; padding: .4rem .6rem;
+  }
+  header.top .who { font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; color: #C9C6B8; }
+  header.top button { background: transparent; color: #C9C6B8; border-color: #4A4E44; padding: .4rem .8rem; }
+
+  .frame { display: flex; flex: 1; min-height: 0; }
+  nav.rail { width: 172px; border-right: 1px solid var(--hair); padding: 1.4rem 0; }
+  nav.rail button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    padding: .68rem 1.3rem; color: var(--ink-soft); border-left: 3px solid transparent;
+    border-radius: 0;
+  }
+  nav.rail button:hover { transform: none; box-shadow: none; color: var(--ink); }
+  nav.rail button.active { color: var(--ink); border-left-color: var(--verdigris); background: var(--paper-2); }
+  main.stage { flex: 1; padding: 1.8rem 2.2rem 3rem; overflow-y: auto; }
+  .view { display: none; max-width: 880px; animation: rise .35s ease both; }
+  .view.on { display: block; }
+  .view h2 { font-size: 1.45rem; font-weight: normal; margin-bottom: .2rem; }
+  .view .lede { color: var(--ink-soft); font-style: italic; font-size: .9rem; margin-bottom: 1.4rem; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- ask ---------- */
+  .ask-bar { display: flex; gap: .6rem; margin-bottom: 1.4rem; }
+  .ask-bar input { flex: 1; font-size: 1.02rem; }
+  .answer-card { padding: 1.4rem 1.5rem; margin-bottom: 1.2rem; }
+  .answer-card .qline { font-family: var(--mono); font-size: .7rem; letter-spacing: .1em;
+                        color: var(--ink-faint); margin-bottom: .8rem; }
+  .answer-text { font-size: 1.04rem; line-height: 1.7; white-space: pre-wrap; }
+  .refused { border-color: var(--stamp); }
+  .refused .stamp { color: var(--stamp); margin-bottom: .8rem; }
+  .refused .why { color: var(--ink-soft); font-style: italic; }
+  .meter-row { display: flex; gap: 1.6rem; align-items: flex-end; flex-wrap: wrap;
+               border-top: 1px dashed var(--hair); margin-top: 1.1rem; padding-top: 1rem; }
+  .meter { min-width: 110px; }
+  .meter .k { margin-bottom: .3rem; display: block; }
+  .meter .track { height: 6px; background: var(--paper-3); border-radius: 1px; overflow: hidden; }
+  .meter .fill { height: 100%; background: var(--verdigris); }
+  .meter .val { font-family: var(--mono); font-size: .72rem; margin-top: .25rem; color: var(--ink-soft); }
+  .overall { margin-left: auto; text-align: right; }
+  .overall .num { font-family: var(--mono); font-size: 1.6rem; color: var(--verdigris-2); }
+  .overall.review .num { color: var(--amber); }
+  .sources { margin-top: 1.2rem; }
+  .source-row { display: flex; gap: .7rem; padding: .55rem 0; border-top: 1px solid var(--paper-3);
+                align-items: baseline; }
+  .cite-chip { font-family: var(--mono); font-size: .72rem; color: var(--paper);
+               background: var(--verdigris); padding: .05rem .45rem; border-radius: 2px; flex: none; }
+  .source-row .file { font-family: var(--mono); font-size: .76rem; }
+  .source-row .snippet { color: var(--ink-soft); font-size: .85rem; font-style: italic;
+                         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- tables ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th { font-family: var(--mono); font-size: .64rem; letter-spacing: .12em; text-transform: uppercase;
+       color: var(--ink-soft); text-align: left; padding: .5rem .6rem;
+       border-bottom: 2px solid var(--ink); }
+  td { padding: .55rem .6rem; border-bottom: 1px solid var(--paper-3); vertical-align: baseline; }
+  td.mono, .mono { font-family: var(--mono); font-size: .76rem; }
+  tr:hover td { background: rgba(46,107,79,.045); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .4rem; }
+  .dot.ok { background: var(--verdigris); } .dot.bad { background: var(--stamp); }
+  .dot.busy { background: var(--amber); }
+
+  .empty { border: 1px dashed var(--hair); padding: 2.2rem; text-align: center;
+           color: var(--ink-faint); font-style: italic; border-radius: 2px; }
+
+  .toolbar { display: flex; gap: .6rem; align-items: center; margin-bottom: 1.1rem; flex-wrap: wrap; }
+  .toolbar .grow { flex: 1; }
+  .notice { padding: .8rem 1rem; border: 1px solid var(--verdigris); background: rgba(46,107,79,.07);
+            font-size: .85rem; margin-bottom: 1rem; border-radius: 2px; }
+  .notice.err { border-color: var(--stamp); background: rgba(166,59,39,.06); color: var(--stamp); }
+  .keyreveal { font-family: var(--mono); font-size: .8rem; word-break: break-all;
+               padding: .7rem; background: var(--paper-2); border: 1px dashed var(--ink);
+               margin-top: .5rem; }
+  .searchrow .score { color: var(--verdigris-2); }
+  .search-snippet { font-size: .84rem; color: var(--ink-soft); max-width: 420px;
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  footer.foot { padding: .7rem 1.4rem; border-top: 1px solid var(--hair);
+                display: flex; justify-content: space-between; }
+  footer.foot .k { font-size: .6rem; }
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN ======================= -->
+<div id="login-view">
+  <div class="login-card card">
+    <div class="brand-mark">EKC · REGISTRY CONSOLE</div>
+    <h1>Every answer, <em>on the record.</em></h1>
+    <p class="login-sub">Self-hosted document intelligence. Cited, confidence-scored, auditable.</p>
+    <div class="login-tabs">
+      <button class="k active" id="tab-signin" type="button">Sign in</button>
+      <button class="k" id="tab-register" type="button">Create account</button>
+    </div>
+    <form id="login-form">
+      <label class="field"><span class="k">Email</span>
+        <input type="email" id="login-email" autocomplete="username" required></label>
+      <label class="field"><span class="k">Password</span>
+        <input type="password" id="login-password" autocomplete="current-password" minlength="8" required></label>
+      <div class="form-error" id="login-error"></div>
+      <button class="primary" id="login-submit" type="submit">Sign in</button>
+    </form>
+    <div class="bootstrap-note">The first account created on a fresh deployment becomes the administrator.</div>
+  </div>
+</div>
+
+<!-- ======================= CONSOLE ======================= -->
+<div id="console-view">
+  <header class="top">
+    <span class="wordmark"><b>EKC</b> · ENTERPRISE KNOWLEDGE COPILOT</span>
+    <span class="tagline">grounded or nothing</span>
+    <span class="spacer"></span>
+    <select id="profile-select" title="Domain profile"></select>
+    <span class="who" id="who"></span>
+    <button id="logout" type="button">Sign out</button>
+  </header>
+
+  <div class="frame">
+    <nav class="rail">
+      <button class="k active" data-view="ask" type="button">Ask</button>
+      <button class="k" data-view="search" type="button">Search</button>
+      <button class="k" data-view="library" type="button">Library</button>
+      <button class="k" data-view="review" id="nav-review" type="button" hidden>Review</button>
+      <button class="k" data-view="keys" id="nav-keys" type="button" hidden>API Keys</button>
+    </nav>
+
+    <main class="stage">
+      <!-- ASK -->
+      <section class="view on" id="view-ask">
+        <h2>Ask the record</h2>
+        <p class="lede">Answers cite document and page, carry a confidence score, and refuse when the evidence is not there.</p>
+        <form class="ask-bar" id="ask-form">
+          <input type="text" id="ask-input" placeholder="Who must wear a helmet on site?" maxlength="2000" required>
+          <button class="primary" id="ask-submit" type="submit">Ask</button>
+        </form>
+        <div id="ask-thread"></div>
+      </section>
+
+      <!-- SEARCH -->
+      <section class="view" id="view-search">
+        <h2>Hybrid search</h2>
+        <p class="lede">Dense semantics and exact terms, fused and reranked. Raw evidence, no generation.</p>
+        <form class="ask-bar" id="search-form">
+          <input type="text" id="search-input" placeholder="force majeure termination clause" maxlength="2000" required>
+          <button class="primary" id="search-submit" type="submit">Search</button>
+        </form>
+        <div id="search-results"></div>
+      </section>
+
+      <!-- LIBRARY -->
+      <section class="view" id="view-library">
+        <h2>Document library</h2>
+        <p class="lede">PDF, markdown, text, and scanned images. Scans are OCR'd with confidence tracking.</p>
+        <div class="toolbar">
+          <input type="file" id="upload-file" accept=".pdf,.md,.txt,.csv,.json,.png,.jpg,.jpeg,.tiff" hidden>
+          <button class="primary" id="upload-btn" type="button" hidden>Upload document</button>
+          <span class="k" id="upload-status"></span>
+          <span class="grow"></span>
+          <button id="refresh-docs" type="button">Refresh</button>
+        </div>
+        <div id="library-notice"></div>
+        <div id="library-table"></div>
+      </section>
+
+      <!-- REVIEW -->
+      <section class="view" id="view-review">
+        <h2>Review queue</h2>
+        <p class="lede">Answers whose confidence fell in the review band. Approve to certify, reject to strike from the record.</p>
+        <div class="toolbar">
+          <div id="stats-strip" style="display:flex;gap:1.4rem;flex-wrap:wrap"></div>
+          <span class="grow"></span>
+          <button id="refresh-reviews" type="button">Refresh</button>
+        </div>
+        <div id="review-list"></div>
+      </section>
+
+      <!-- API KEYS -->
+      <section class="view" id="view-keys">
+        <h2>Service API keys</h2>
+        <p class="lede">Machine credentials for integrating the RAG API into your own applications.</p>
+        <form class="toolbar" id="key-form">
+          <input type="text" id="key-name" placeholder="key name, e.g. intranet-bot" maxlength="100" required style="max-width:260px">
+          <select id="key-role" style="width:auto">
+            <option value="user">role: user</option>
+            <option value="reviewer">role: reviewer</option>
+            <option value="admin">role: admin</option>
+          </select>
+          <button class="primary" type="submit">Create key</button>
+        </form>
+        <div id="key-notice"></div>
+        <div id="keys-table"></div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="foot">
+    <span class="k">Registry console · self-contained · no external resources</span>
+    <span class="k" id="foot-profile"></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ============ tiny safe-DOM helpers (no innerHTML for data, ever) ============ */
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k === "hidden") node.hidden = Boolean(v);
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const child of children) {
+    if (child == null) continue;
+    node.append(typeof child === "string" ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+const $ = (id) => document.getElementById(id);
+function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+/* ============ state & api ============ */
+const state = {
+  access: sessionStorage.getItem("ekc_access") || null,
+  refresh: sessionStorage.getItem("ekc_refresh") || null,
+  user: null,
+  profiles: [],
+  mode: "signin",
+};
+
+function saveTokens(access, refresh) {
+  state.access = access; state.refresh = refresh;
+  sessionStorage.setItem("ekc_access", access);
+  sessionStorage.setItem("ekc_refresh", refresh);
+}
+function dropTokens() {
+  state.access = state.refresh = null; state.user = null;
+  sessionStorage.removeItem("ekc_access");
+  sessionStorage.removeItem("ekc_refresh");
+}
+
+async function api(path, options = {}, retried = false) {
+  const headers = options.headers ? { ...options.headers } : {};
+  if (state.access) headers["Authorization"] = "Bearer " + state.access;
+  if (options.body && !(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+  const response = await fetch("/api/v1" + path, { ...options, headers });
+  if (response.status === 401 && state.refresh && !retried) {
+    const ok = await tryRefresh();
+    if (ok) return api(path, options, true);
+    showLogin(); throw new Error("Session expired — sign in again.");
+  }
+  if (response.status === 204) return null;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data && data.error && data.error.message
+      ? data.error.message : "Request failed (" + response.status + ")";
+    throw new Error(message);
+  }
+  return data;
+}
+
+async function tryRefresh() {
+  try {
+    const response = await fetch("/api/v1/auth/refresh", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: state.refresh }),
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    saveTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch { return false; }
+}
+
+/* ============ auth views ============ */
+function showLogin() {
+  dropTokens();
+  $("login-view").style.display = "grid";
+  $("console-view").classList.remove("on");
+}
+
+async function showConsole() {
+  $("login-view").style.display = "none";
+  $("console-view").classList.add("on");
+  state.user = await api("/auth/me");
+  $("who").textContent = state.user.email + " · " + state.user.role.toUpperCase();
+  const isAdmin = state.user.role === "admin";
+  const canReview = isAdmin || state.user.role === "reviewer";
+  $("nav-keys").hidden = !isAdmin;
+  $("nav-review").hidden = !canReview;
+  $("upload-btn").hidden = !canReview;
+  await loadProfiles();
+  await loadDocuments();
+  if (canReview) await loadReviews();
+  if (isAdmin) await loadKeys();
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  $("tab-signin").classList.toggle("active", mode === "signin");
+  $("tab-register").classList.toggle("active", mode === "register");
+  $("login-submit").textContent = mode === "signin" ? "Sign in" : "Create account";
+  $("login-password").autocomplete = mode === "signin" ? "current-password" : "new-password";
+  $("login-error").textContent = "";
+}
+$("tab-signin").addEventListener("click", () => setMode("signin"));
+$("tab-register").addEventListener("click", () => setMode("register"));
+
+$("login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("login-submit");
+  button.disabled = true;
+  $("login-error").textContent = "";
+  const email = $("login-email").value.trim();
+  const password = $("login-password").value;
+  try {
+    if (state.mode === "register") {
+      await fetch("/api/v1/auth/register", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      }).then(async (r) => { if (!r.ok) { const d = await r.json(); throw new Error(d.error?.message || "Registration failed"); } });
+    }
+    const data = await fetch("/api/v1/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }).then(async (r) => {
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error?.message || "Sign-in failed");
+      return d;
+    });
+    saveTokens(data.access_token, data.refresh_token);
+    await showConsole();
+  } catch (error) {
+    $("login-error").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+$("logout").addEventListener("click", showLogin);
+
+/* ============ profiles ============ */
+async function loadProfiles() {
+  state.profiles = await api("/profiles");
+  const select = $("profile-select");
+  clear(select);
+  for (const profile of state.profiles) {
+    select.append(el("option", { value: profile.name }, profile.display_name));
+  }
+  select.value = "general";
+  $("foot-profile").textContent = "profile: " + select.value;
+  select.addEventListener("change", () => {
+    $("foot-profile").textContent = "profile: " + select.value;
+  });
+}
+const activeProfile = () => $("profile-select").value || "general";
+
+/* ============ navigation ============ */
+for (const button of document.querySelectorAll("nav.rail button")) {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("nav.rail button").forEach((b) => b.classList.remove("active"));
+    button.classList.add("active");
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("on"));
+    $("view-" + button.dataset.view).classList.add("on");
+  });
+}
+
+/* ============ ask ============ */
+const REFUSAL_TEXT = {
+  no_relevant_documents: "No documents in the library are relevant to this question.",
+  insufficient_evidence: "The library does not contain evidence to answer this.",
+  missing_citations: "An answer was drafted but could not be traced to sources, so it was withheld.",
+  low_confidence: "Confidence fell below this profile's threshold, so the answer was withheld.",
+};
+
+$("ask-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = $("ask-input").value.trim();
+  if (!question) return;
+  const button = $("ask-submit");
+  button.disabled = true; button.textContent = "Consulting…";
+  try {
+    const result = await api("/query", {
+      method: "POST",
+      body: JSON.stringify({ query: question, profile: activeProfile() }),
+    });
+    $("ask-thread").prepend(renderAnswer(question, result));
+    $("ask-input").value = "";
+  } catch (error) {
+    $("ask-thread").prepend(el("div", { class: "notice err" }, error.message));
+  } finally {
+    button.disabled = false; button.textContent = "Ask";
+  }
+});
+
+function meter(label, value) {
+  const fill = el("div", { class: "fill" });
+  fill.style.width = Math.round((value || 0) * 100) + "%";
+  return el("div", { class: "meter" },
+    el("span", { class: "k" }, label),
+    el("div", { class: "track" }, fill),
+    el("div", { class: "val" }, (value ?? 0).toFixed(2)),
+  );
+}
+
+function renderAnswer(question, result) {
+  const card = el("div", { class: "answer-card card" });
+  card.append(el("div", { class: "qline" }, "Q · " + question + "   ·   " + result.model));
+
+  if (!result.answered) {
+    card.classList.add("refused");
+    card.append(el("div", null, el("span", { class: "stamp" }, "Declined")));
+    card.append(el("p", { class: "why" },
+      REFUSAL_TEXT[result.refusal_reason] || result.refusal_reason || "Withheld."));
+    return card;
+  }
+
+  card.append(el("div", { class: "answer-text" }, result.answer));
+
+  if (result.citations.length) {
+    const sources = el("div", { class: "sources" }, el("span", { class: "k" }, "Sources"));
+    for (const citation of result.citations) {
+      sources.append(el("div", { class: "source-row" },
+        el("span", { class: "cite-chip" }, "[" + citation.marker + "]"),
+        el("span", { class: "file" },
+          citation.filename + (citation.page_number ? " · p." + citation.page_number : "")),
+        el("span", { class: "snippet" }, citation.snippet),
+      ));
+    }
+    card.append(sources);
+  }
+
+  const breakdown = result.confidence_breakdown || {};
+  const overall = el("div", { class: "overall" + (result.needs_review ? " review" : "") },
+    el("span", { class: "k" }, result.needs_review ? "Confidence · for review" : "Confidence"),
+    el("div", { class: "num" }, result.confidence.toFixed(2)),
+  );
+  const meters = el("div", { class: "meter-row" },
+    meter("Retrieval", breakdown.retrieval),
+    meter("Grounded", breakdown.groundedness),
+    meter("Citations", breakdown.citations),
+    overall,
+  );
+  card.append(meters);
+  if (result.needs_review) {
+    card.append(el("div", { style: "margin-top:.8rem" },
+      el("span", { class: "badge warn" }, "Flagged for human review")));
+  }
+  return card;
+}
+
+/* ============ search ============ */
+$("search-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const query = $("search-input").value.trim();
+  if (!query) return;
+  const button = $("search-submit");
+  button.disabled = true;
+  try {
+    const result = await api("/search", {
+      method: "POST",
+      body: JSON.stringify({ query, profile: activeProfile() }),
+    });
+    renderSearch(result);
+  } catch (error) {
+    clear($("search-results"));
+    $("search-results").append(el("div", { class: "notice err" }, error.message));
+  } finally {
+    button.disabled = false;
+  }
+});
+
+function renderSearch(result) {
+  const container = $("search-results");
+  clear(container);
+  if (!result.results.length) {
+    container.append(el("div", { class: "empty" }, "Nothing in the record matches."));
+    return;
+  }
+  const table = el("table", null,
+    el("thead", null, el("tr", null,
+      el("th", null, "#"), el("th", null, "Document"), el("th", null, "Page"),
+      el("th", null, "Passage"), el("th", null, "Score"), el("th", null, "Via"))));
+  const tbody = el("tbody");
+  result.results.forEach((row, index) => {
+    tbody.append(el("tr", { class: "searchrow" },
+      el("td", { class: "mono" }, String(index + 1)),
+      el("td", { class: "mono" }, row.filename),
+      el("td", { class: "mono" }, row.page_number == null ? "—" : String(row.page_number)),
+      el("td", null, el("div", { class: "search-snippet" }, row.content)),
+      el("td", { class: "mono score" }, row.score.toFixed(4)),
+      el("td", { class: "mono" }, row.channels.join("+")),
+    ));
+  });
+  table.append(tbody);
+  container.append(table);
+  container.append(el("p", { class: "k", style: "margin-top:.6rem" },
+    result.dense_candidates + " dense · " + result.sparse_candidates + " sparse · " +
+    (result.reranked ? "reranked" : "fused") + " · " + result.took_ms + " ms"));
+}
+
+/* ============ library ============ */
+$("upload-btn").addEventListener("click", () => $("upload-file").click());
+$("refresh-docs").addEventListener("click", loadDocuments);
+
+$("upload-file").addEventListener("change", async () => {
+  const file = $("upload-file").files[0];
+  if (!file) return;
+  $("upload-status").textContent = "Ingesting " + file.name + "…";
+  clear($("library-notice"));
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const result = await api("/documents", { method: "POST", body: form });
+    const doc = result.document;
+    if (doc.status !== "completed") {
+      $("library-notice").append(el("div", { class: "notice err" },
+        "Ingestion " + doc.status + (doc.error ? ": " + doc.error : "")));
+    }
+    await loadDocuments();
+  } catch (error) {
+    $("library-notice").append(el("div", { class: "notice err" }, error.message));
+  } finally {
+    $("upload-status").textContent = "";
+    $("upload-file").value = "";
+  }
+});
+
+async function loadDocuments() {
+  const documents = await api("/documents?limit=100");
+  const container = $("library-table");
+  clear(container);
+  if (!documents.length) {
+    container.append(el("div", { class: "empty" },
+      "The registry is empty. Upload a PDF, a markdown file, or a scanned page."));
+    return;
+  }
+  const isAdmin = state.user && state.user.role === "admin";
+  const table = el("table", null,
+    el("thead", null, el("tr", null,
+      el("th", null, "Document"), el("th", null, "Status"), el("th", null, "Pages"),
+      el("th", null, "OCR"), el("th", null, "Size"), el("th", null, "Added"),
+      isAdmin ? el("th", null, "") : null)));
+  const tbody = el("tbody");
+  for (const doc of documents) {
+    const status = el("td", null,
+      el("span", { class: "dot " + (doc.status === "completed" ? "ok" : doc.status === "failed" ? "bad" : "busy") }),
+      el("span", { class: "mono" }, doc.status));
+    const meta = doc.doc_metadata || {};
+    const ocr = meta.ocr_pages
+      ? el("span", { class: "badge " + (meta.ocr_confidence >= 0.8 ? "ok" : "warn") },
+          "OCR " + (meta.ocr_confidence ?? 0).toFixed(2))
+      : el("span", { class: "badge dim" }, "text");
+    const row = el("tr", null,
+      el("td", { class: "mono" }, doc.filename),
+      status,
+      el("td", { class: "mono" }, doc.page_count == null ? "—" : String(doc.page_count)),
+      el("td", null, ocr),
+      el("td", { class: "mono" }, (doc.size_bytes / 1024).toFixed(1) + " kb"),
+      el("td", { class: "mono" }, new Date(doc.created_at).toLocaleDateString()),
+    );
+    if (isAdmin) {
+      row.append(el("td", null, el("button", {
+        class: "danger",
+        onclick: async () => {
+          if (!confirm("Delete " + doc.filename + " and its index entries?")) return;
+          try { await api("/documents/" + doc.id, { method: "DELETE" }); await loadDocuments(); }
+          catch (error) { alert(error.message); }
+        },
+      }, "Remove")));
+    }
+    tbody.append(row);
+  }
+  table.append(tbody);
+  container.append(table);
+}
+
+/* ============ review queue (reviewer/admin) ============ */
+$("refresh-reviews").addEventListener("click", loadReviews);
+
+async function loadReviews() {
+  await Promise.all([renderStats(), renderQueue()]);
+}
+
+async function renderStats() {
+  if (!state.user || state.user.role !== "admin") { clear($("stats-strip")); return; }
+  try {
+    const stats = await api("/admin/stats");
+    const chip = (label, value) => el("div", null,
+      el("span", { class: "k" }, label),
+      el("div", { class: "mono", style: "font-size:1.15rem" }, String(value)));
+    const strip = $("stats-strip");
+    clear(strip);
+    strip.append(
+      chip("Documents", stats.documents_total),
+      chip("Chunks", stats.chunks_total),
+      chip("Queries", stats.queries_total),
+      chip("Answered", stats.queries_answered),
+      chip("Refused", stats.queries_refused),
+      chip("Avg conf", stats.avg_confidence_answered ?? "—"),
+      chip("Pending", stats.reviews_pending),
+    );
+  } catch { /* stats are admin-only decoration */ }
+}
+
+async function renderQueue() {
+  const container = $("review-list");
+  clear(container);
+  let items;
+  try { items = await api("/reviews?status=pending"); }
+  catch (error) { container.append(el("div", { class: "notice err" }, error.message)); return; }
+  if (!items.length) {
+    container.append(el("div", { class: "empty" }, "Nothing awaits review. The record is clean."));
+    return;
+  }
+  for (const item of items) {
+    const card = el("div", { class: "answer-card card", style: "margin-bottom:1rem" });
+    card.append(el("div", { class: "qline" },
+      "Q · " + item.query + "   ·   conf " + item.confidence.toFixed(2) +
+      "   ·   " + new Date(item.created_at).toLocaleString()));
+    card.append(el("div", { class: "answer-text", style: "font-size:.95rem" }, item.answer || "—"));
+    if (item.citations.length) {
+      card.append(el("p", { class: "k", style: "margin-top:.6rem" },
+        "cites: " + item.citations.map((c) => c.filename + " p." + (c.page_number ?? "?")).join(" · ")));
+    }
+    const actions = el("div", { style: "margin-top:.9rem; display:flex; gap:.6rem" });
+    const resolve = async (action) => {
+      const note = action === "reject" ? (prompt("Reason for rejection (recorded):") || null) : null;
+      try {
+        await api("/reviews/" + item.id + "/resolve", {
+          method: "POST", body: JSON.stringify({ action, note }),
+        });
+        await loadReviews();
+      } catch (error) { alert(error.message); }
+    };
+    actions.append(
+      el("button", { class: "primary", onclick: () => resolve("approve") }, "Approve"),
+      el("button", { class: "danger", onclick: () => resolve("reject") }, "Reject"),
+    );
+    card.append(actions);
+    container.append(card);
+  }
+}
+
+/* ============ api keys (admin) ============ */
+$("key-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clear($("key-notice"));
+  try {
+    const created = await api("/api-keys", {
+      method: "POST",
+      body: JSON.stringify({ name: $("key-name").value.trim(), role: $("key-role").value }),
+    });
+    const reveal = el("div", { class: "notice" },
+      el("strong", null, "Copy this key now — it is shown once. "),
+      el("div", { class: "keyreveal" }, created.key),
+      el("div", { style: "margin-top:.5rem" }, el("button", {
+        type: "button",
+        onclick: (clickEvent) => {
+          navigator.clipboard.writeText(created.key);
+          clickEvent.target.textContent = "Copied";
+        },
+      }, "Copy")),
+    );
+    $("key-notice").append(reveal);
+    $("key-name").value = "";
+    await loadKeys();
+  } catch (error) {
+    $("key-notice").append(el("div", { class: "notice err" }, error.message));
+  }
+});
+
+async function loadKeys() {
+  const keys = await api("/api-keys");
+  const container = $("keys-table");
+  clear(container);
+  if (!keys.length) {
+    container.append(el("div", { class: "empty" }, "No service keys issued."));
+    return;
+  }
+  const table = el("table", null,
+    el("thead", null, el("tr", null,
+      el("th", null, "Name"), el("th", null, "Prefix"), el("th", null, "Role"),
+      el("th", null, "Status"), el("th", null, "Last used"), el("th", null, ""))));
+  const tbody = el("tbody");
+  for (const key of keys) {
+    tbody.append(el("tr", null,
+      el("td", null, key.name),
+      el("td", { class: "mono" }, key.key_prefix + "…"),
+      el("td", { class: "mono" }, key.role),
+      el("td", null, el("span", { class: "badge " + (key.is_active ? "ok" : "bad") },
+        key.is_active ? "active" : "revoked")),
+      el("td", { class: "mono" },
+        key.last_used_at ? new Date(key.last_used_at).toLocaleString() : "never"),
+      el("td", null, key.is_active ? el("button", {
+        class: "danger",
+        onclick: async () => {
+          if (!confirm("Revoke key " + key.name + "?")) return;
+          try { await api("/api-keys/" + key.id, { method: "DELETE" }); await loadKeys(); }
+          catch (error) { alert(error.message); }
+        },
+      }, "Revoke") : null),
+    ));
+  }
+  table.append(tbody);
+  container.append(table);
+}
+
+/* ============ boot ============ */
+(async function boot() {
+  if (state.access) {
+    try { await showConsole(); return; } catch { /* fall through to login */ }
+  }
+  showLogin();
+})();
+</script>
+</body>
+</html>

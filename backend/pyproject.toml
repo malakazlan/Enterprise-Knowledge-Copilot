@@ -37,10 +37,28 @@ dependencies = [
     "pwdlib[argon2]>=0.2",
     # Config & profiles
     "pyyaml>=6.0",
+    # Vector store (default production adapter)
+    "qdrant-client>=1.12",
+    # LLM provider SDKs (activated via LLM_PROVIDER config)
+    "anthropic>=0.40",
+    "openai>=1.60",
+    # Document parsing
+    "pypdf>=5.0",
 ]
 
+[project.scripts]
+ekc-mcp = "app.mcp.server:main"
+
 [project.optional-dependencies]
+# CPU-tier OCR for scanned PDFs/images (activated via OCR_PROVIDER=rapidocr).
+mcp = ["mcp>=1.9"]
+ocr = [
+    "rapidocr>=3.0",
+    "onnxruntime>=1.20",
+    "pypdfium2>=4.30",
+]
 dev = [
+    "mcp>=1.9",
     "ruff>=0.7",
     "mypy>=1.11",
     "pytest>=8.3",
@@ -49,14 +67,18 @@ dev = [
     "aiosqlite>=0.20",
     "types-requests",
     "types-PyYAML",
+    # OCR extras are exercised by the test suite
+    "rapidocr>=3.0",
+    "onnxruntime>=1.20",
+    "pypdfium2>=4.30",
 ]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
 
 [tool.setuptools.package-data]
-# Ship profile packs (YAML) inside the wheel/container build.
-"app" = ["**/*.yaml"]
+# Ship profile packs (YAML) and the web console inside the wheel/container build.
+"app" = ["**/*.yaml", "**/*.html"]
 
 [tool.ruff]
 line-length = 100

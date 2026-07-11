@@ -28,6 +28,17 @@ class DocumentRead(BaseModel):
     updated_at: datetime
 
 
+class ChunkRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    document_id: uuid.UUID
+    chunk_index: int
+    content: str
+    page_number: int | None
+    token_count: int | None
+
+
 class IngestionJobRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

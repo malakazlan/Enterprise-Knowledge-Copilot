@@ -143,3 +143,33 @@ async def test_get_unknown_document_returns_404(
     headers = await auth_headers("admin@example.com")
     resp = await client.get(f"{DOCUMENTS}/{uuid.uuid4()}", headers=headers)
     assert resp.status_code == 404
+
+
+async def test_list_document_chunks(
+    client: AsyncClient, make_user: MakeUser, auth_headers: AuthHeaders
+) -> None:
+    await make_user("admin@example.com", role=UserRole.ADMIN)
+    headers = await auth_headers("admin@example.com")
+    upload = await _upload(
+        client,
+        headers,
+        "chunks.md",
+        b"# Title\n\nFirst paragraph.\n\nSecond paragraph.",
+        "text/markdown",
+    )
+    assert upload.status_code == 201
+    doc_id = upload.json()["document"]["id"]
+
+    resp = await client.get(f"{DOCUMENTS}/{doc_id}/chunks", headers=headers)
+    assert resp.status_code == 200
+    chunks = resp.json()
+    assert len(chunks) >= 1
+    indexes = [c["chunk_index"] for c in chunks]
+    assert indexes == sorted(indexes)
+    assert all(c["document_id"] == doc_id for c in chunks)
+    assert all(c["content"] for c in chunks)
+
+    missing = await client.get(
+        f"{DOCUMENTS}/00000000-0000-0000-0000-000000000000/chunks", headers=headers
+    )
+    assert missing.status_code == 404

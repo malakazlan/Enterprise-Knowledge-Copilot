@@ -17,6 +17,45 @@ logger = structlog.get_logger("app.request")
 REQUEST_ID_HEADER = "X-Request-ID"
 PROCESS_TIME_HEADER = "X-Process-Time-Ms"
 
+# The console is a self-contained single file, so the CSP can deny everything
+# external; 'unsafe-inline' is the deliberate tradeoff of the no-build-chain
+# design (no CDNs, no third-party scripts to compromise).
+_CONSOLE_CSP = (
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+    "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; "
+    "frame-ancestors 'none'"
+)
+
+# The exported web app loads its own hashed chunks from /_next/ and inlines a
+# bootstrap script (unavoidable with a static export), but may never reach any
+# other origin: no CDNs, no telemetry, no remote fonts.
+_APP_CSP = (
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
+    "connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+)
+
+# Interactive API docs load Swagger assets and must keep their default policy.
+_CSP_EXEMPT_PREFIXES = ("/docs", "/redoc", "/openapi.json")
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Baseline security headers on every response."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "same-origin")
+        path = request.url.path
+        if path == "/console":
+            response.headers.setdefault("Content-Security-Policy", _CONSOLE_CSP)
+        elif not path.startswith(_CSP_EXEMPT_PREFIXES) and response.headers.get(
+            "content-type", ""
+        ).startswith("text/html"):
+            response.headers.setdefault("Content-Security-Policy", _APP_CSP)
+        return response
+
 
 def _route_template(request: Request) -> str:
     """Return the matched route pattern to keep metric label cardinality low."""

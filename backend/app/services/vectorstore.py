@@ -48,7 +48,15 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 def _matches(metadata: dict[str, Any], filters: dict[str, Any]) -> bool:
-    return all(metadata.get(key) == value for key, value in filters.items())
+    """Equality filter; a list value means set membership (``IN``)."""
+    for key, expected in filters.items():
+        actual = metadata.get(key)
+        if isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
 
 
 class InMemoryVectorStore:

@@ -30,10 +30,17 @@ services:
       timeout: 3s
       retries: 10
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
   api:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     env_file:
       - path: ../backend/.env
         required: false
@@ -41,6 +48,8 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-local}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ekc}:${POSTGRES_PASSWORD:-ekc}@postgres:5432/${POSTGRES_DB:-ekc}
       REDIS_URL: redis://redis:6379/0
+      VECTOR_STORE_PROVIDER: ${VECTOR_STORE_PROVIDER:-qdrant}
+      QDRANT_URL: http://qdrant:6333
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -48,7 +57,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      qdrant:
+        condition: service_started
 
 volumes:
   pgdata:
   redisdata:
+  qdrantdata:
