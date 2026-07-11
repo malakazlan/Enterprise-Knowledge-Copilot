@@ -16,7 +16,12 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from app.services.ingestion.ports import DocumentParser, ParsedDocument, ParsedPage
+from app.services.ingestion.ports import (
+    DocumentParser,
+    OcrEngine,
+    ParsedDocument,
+    ParsedPage,
+)
 
 _TEXT_CONTENT_TYPES = frozenset(
     {
@@ -59,34 +64,91 @@ class LocalTextParser:
 
 
 class PdfParser:
-    """Digital-PDF parser (pypdf). Page numbers map 1:1 to the source file.
+    """PDF parser (pypdf) with per-page OCR fallback.
 
-    Extracts the embedded text layer; scanned/image-only PDFs yield empty
-    pages and fail ingestion with a clear error (OCR is a separate adapter).
+    The embedded text layer is used when present; pages without one (scans)
+    are routed to the configured OCR engine. Mixed digital/scanned PDFs — the
+    enterprise norm — therefore work page by page. OCR'd pages and their mean
+    confidence are recorded in the document metadata so low-quality scans can
+    be surfaced for human review.
     """
 
     name = "pypdf"
+
+    # Text layers with fewer meaningful characters than this are treated as
+    # absent (scanned pages often carry a few stray artifacts).
+    _MIN_TEXT_LAYER_CHARS = 4
+
+    def __init__(self, ocr: OcrEngine | None = None) -> None:
+        self._ocr = ocr
 
     def supports(self, content_type: str, filename: str) -> bool:
         return content_type == "application/pdf" or Path(filename).suffix.lower() == ".pdf"
 
     async def parse(self, *, file_path: str, content_type: str, filename: str) -> ParsedDocument:
-        def _read() -> tuple[list[ParsedPage], str | None]:
+        def _read() -> tuple[list[ParsedPage], str | None, list[int], list[float]]:
             reader = PdfReader(file_path)
-            pages = [
-                ParsedPage(page_number=number, text=page.extract_text() or "")
-                for number, page in enumerate(reader.pages, start=1)
-            ]
+            pages: list[ParsedPage] = []
+            ocr_pages: list[int] = []
+            confidences: list[float] = []
+            for number, page in enumerate(reader.pages, start=1):
+                text = page.extract_text() or ""
+                if len(text.strip()) < self._MIN_TEXT_LAYER_CHARS and self._ocr is not None:
+                    result = self._ocr.recognize_pdf_page(file_path, number - 1)
+                    if result.text:
+                        text = result.text
+                        ocr_pages.append(number)
+                        confidences.append(result.confidence)
+                pages.append(ParsedPage(page_number=number, text=text))
             meta = reader.metadata
             title = meta.title if meta is not None and meta.title else None
-            return pages, title
+            return pages, title, ocr_pages, confidences
 
-        # pypdf is synchronous and CPU/IO bound — keep it off the event loop.
-        pages, title = await asyncio.to_thread(_read)
+        # pypdf and OCR are synchronous and CPU bound — keep off the event loop.
+        pages, title, ocr_pages, confidences = await asyncio.to_thread(_read)
+        metadata: dict[str, object] = {"parser": self.name, "content_type": content_type}
+        if ocr_pages:
+            metadata["ocr_engine"] = self._ocr.name if self._ocr else None
+            metadata["ocr_pages"] = ocr_pages
+            # Minimum across pages: one bad page should flag the document.
+            metadata["ocr_confidence"] = min(confidences)
         return ParsedDocument(
             pages=pages,
             title=title or Path(filename).stem,
-            metadata={"parser": self.name, "content_type": content_type},
+            metadata=metadata,
+        )
+
+
+_IMAGE_CONTENT_TYPES = frozenset(
+    {"image/png", "image/jpeg", "image/tiff", "image/bmp", "image/webp"}
+)
+_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"})
+
+
+class ImageOcrParser:
+    """Single-page scanned images (photographed or scanned documents)."""
+
+    name = "image-ocr"
+
+    def __init__(self, ocr: OcrEngine) -> None:
+        self._ocr = ocr
+
+    def supports(self, content_type: str, filename: str) -> bool:
+        extension = Path(filename).suffix.lower()
+        return content_type in _IMAGE_CONTENT_TYPES or extension in _IMAGE_EXTENSIONS
+
+    async def parse(self, *, file_path: str, content_type: str, filename: str) -> ParsedDocument:
+        result = await asyncio.to_thread(self._ocr.recognize_image, file_path)
+        return ParsedDocument(
+            pages=[ParsedPage(page_number=1, text=result.text)],
+            title=Path(filename).stem,
+            metadata={
+                "parser": self.name,
+                "content_type": content_type,
+                "ocr_engine": self._ocr.name,
+                "ocr_pages": [1],
+                "ocr_confidence": result.confidence,
+            },
         )
 
 

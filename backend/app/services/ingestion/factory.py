@@ -9,22 +9,66 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+import structlog
+
 from app.core.config import settings
 from app.core.exceptions import ServiceUnavailableError
 from app.services.ingestion.chunking import Chunker
 from app.services.ingestion.embedding import HashingEmbedder
-from app.services.ingestion.parsers import CompositeParser, LocalTextParser, PdfParser
-from app.services.ingestion.ports import DocumentParser, Embedder
+from app.services.ingestion.parsers import (
+    CompositeParser,
+    ImageOcrParser,
+    LocalTextParser,
+    PdfParser,
+)
+from app.services.ingestion.ports import DocumentParser, Embedder, OcrEngine
 from app.services.storage import LocalFileStorage, ObjectStorage
 from app.services.vectorstore import InMemoryVectorStore, VectorStore
+
+logger = structlog.get_logger("app.ingestion.factory")
+
+
+@lru_cache
+def get_ocr() -> OcrEngine | None:
+    provider = settings.ocr_provider
+    if provider == "none":
+        return None
+    if provider == "rapidocr":
+        try:
+            import pypdfium2  # noqa: F401 - availability probe
+            import rapidocr  # noqa: F401 - availability probe
+        except ImportError as exc:
+            raise ServiceUnavailableError(
+                "OCR provider 'rapidocr' requires the ocr extras: "
+                'pip install "enterprise-knowledge-copilot[ocr]"'
+            ) from exc
+        from app.services.ingestion.ocr import RapidOcrEngine
+
+        return RapidOcrEngine(
+            render_scale=settings.ocr_render_scale,
+            min_line_confidence=settings.ocr_min_line_confidence,
+        )
+    raise ServiceUnavailableError(f"OCR provider '{provider}' is not configured.")
 
 
 @lru_cache
 def get_parser() -> DocumentParser:
     provider = settings.parser_provider
     if provider == "local":
+        ocr: OcrEngine | None = None
+        try:
+            ocr = get_ocr()
+        except ServiceUnavailableError as exc:
+            # Text and digital-PDF ingestion still work without OCR; scanned
+            # content will be rejected or fail loudly instead.
+            logger.warning("ocr_unavailable", error=str(exc))
+
         # Order matters: specific binary formats first, generic text last.
-        return CompositeParser([PdfParser(), LocalTextParser()])
+        parsers: list[DocumentParser] = [PdfParser(ocr=ocr)]
+        if ocr is not None:
+            parsers.append(ImageOcrParser(ocr))
+        parsers.append(LocalTextParser())
+        return CompositeParser(parsers)
     raise ServiceUnavailableError(f"Parser provider '{provider}' is not configured.")
 
 
