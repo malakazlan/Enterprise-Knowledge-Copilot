@@ -16,7 +16,7 @@ from app.models.document import (
     JobStatus,
 )
 from app.models.evals import EvalCase, EvalDataset, EvalRun
-from app.models.querylog import QueryLog
+from app.models.querylog import QueryLog, ReviewStatus
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -31,6 +31,7 @@ __all__ = [
     "JobStage",
     "JobStatus",
     "QueryLog",
+    "ReviewStatus",
     "User",
     "UserRole",
 ]
