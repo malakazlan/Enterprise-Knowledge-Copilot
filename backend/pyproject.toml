@@ -47,6 +47,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# CPU-tier OCR for scanned PDFs/images (activated via OCR_PROVIDER=rapidocr).
+ocr = [
+    "rapidocr>=3.0",
+    "onnxruntime>=1.20",
+    "pypdfium2>=4.30",
+]
 dev = [
     "ruff>=0.7",
     "mypy>=1.11",
@@ -56,6 +62,10 @@ dev = [
     "aiosqlite>=0.20",
     "types-requests",
     "types-PyYAML",
+    # OCR extras are exercised by the test suite
+    "rapidocr>=3.0",
+    "onnxruntime>=1.20",
+    "pypdfium2>=4.30",
 ]
 
 [tool.setuptools.packages.find]

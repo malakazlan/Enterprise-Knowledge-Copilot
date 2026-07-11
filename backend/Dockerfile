@@ -15,7 +15,8 @@ RUN python -m venv /opt/venv && pip install --upgrade pip
 # Dependency metadata first for better layer caching.
 COPY pyproject.toml README.md ./
 COPY app ./app
-RUN pip install .
+# Ship with CPU-tier OCR so scanned documents work out of the box.
+RUN pip install ".[ocr]"
 
 # ----- Runtime: minimal, non-root -----
 FROM python:3.11-slim AS runtime
