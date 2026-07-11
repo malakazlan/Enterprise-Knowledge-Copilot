@@ -7,7 +7,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { ApiError, listReviews, resolveReview } from "@/lib/api";
 import type { ReviewItem } from "@/lib/types";
 import { PageHead } from "@/components/shell";
-import { Button, Callout, Card, Cite, EmptyState, Spinner } from "@/components/ui";
+import { Button, Callout, Card, Cite, EmptyState, TableSkeleton } from "@/components/ui";
 
 function AnswerText({ text }: { text: string }) {
   const parts = text.split(/\[(\d{1,2})\]/g);
@@ -118,9 +118,9 @@ export default function ReviewPage() {
 
       {!error &&
         (items === null ? (
-          <div className="flex justify-center py-14">
-            <Spinner />
-          </div>
+          <Card>
+            <TableSkeleton rows={3} />
+          </Card>
         ) : items.length === 0 ? (
           <Card>
             <EmptyState

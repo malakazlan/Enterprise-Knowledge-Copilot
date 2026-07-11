@@ -67,6 +67,17 @@ def get_parser() -> DocumentParser:
         parsers: list[DocumentParser] = [PdfParser(ocr=ocr)]
         if ocr is not None:
             parsers.append(ImageOcrParser(ocr))
+        import importlib.util
+
+        if all(
+            importlib.util.find_spec(module) is not None for module in ("docx", "pptx", "openpyxl")
+        ):
+            from app.services.ingestion.office import OfficeParser
+
+            parsers.append(OfficeParser())
+        else:
+            # DOCX/PPTX/XLSX need the [office] extra; everything else works.
+            logger.warning("office_parsers_unavailable")
         parsers.append(LocalTextParser())
         return CompositeParser(parsers)
     raise ServiceUnavailableError(f"Parser provider '{provider}' is not configured.")
@@ -91,6 +102,10 @@ def get_embedder() -> Embedder:
             dimension=settings.embedding_dimension,
             base_url=settings.openai_base_url,
         )
+    if provider == "fastembed":
+        from app.services.ingestion.embedding import FastEmbedEmbedder
+
+        return FastEmbedEmbedder(model=settings.fastembed_model, cache_dir=settings.model_cache_dir)
     raise ServiceUnavailableError(f"Embedder provider '{provider}' is not configured.")
 
 
@@ -107,7 +122,9 @@ def get_vector_store() -> VectorStore:
             url=settings.qdrant_url,
             api_key=api_key.get_secret_value() if api_key else None,
             collection=settings.qdrant_collection,
-            dimension=settings.embedding_dimension,
+            # Sized from the active embedder so switching providers can never
+            # produce vectors that don't fit the collection.
+            dimension=get_embedder().dimension,
         )
     raise ServiceUnavailableError(f"Vector store provider '{provider}' is not configured.")
 

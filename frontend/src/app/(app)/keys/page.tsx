@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, createApiKey, listApiKeys, revokeApiKey } from "@/lib/api";
 import type { ApiKeyCreated, ApiKeyRead } from "@/lib/types";
 import { PageHead } from "@/components/shell";
-import { Button, Callout, Card, EmptyState, Pill, Spinner } from "@/components/ui";
+import { Button, Callout, Card, EmptyState, Pill, TableSkeleton } from "@/components/ui";
 
 export default function KeysPage() {
   const [keys, setKeys] = useState<ApiKeyRead[] | null>(null);
@@ -124,9 +124,7 @@ export default function KeysPage() {
 
       <Card className="overflow-hidden">
         {keys === null ? (
-          <div className="flex justify-center py-14">
-            <Spinner />
-          </div>
+          <TableSkeleton rows={3} />
         ) : keys.length === 0 ? (
           <EmptyState title="No API keys yet" hint="Create one above to integrate your own apps." />
         ) : (

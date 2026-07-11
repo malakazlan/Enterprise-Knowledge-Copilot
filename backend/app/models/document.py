@@ -71,6 +71,9 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    collection_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("collections.id", ondelete="SET NULL"), index=True, nullable=True
+    )
 
 
 class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):

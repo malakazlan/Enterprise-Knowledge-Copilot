@@ -20,6 +20,7 @@ class DocumentRead(BaseModel):
     size_bytes: int
     checksum: str
     status: IngestionStatus
+    collection_id: uuid.UUID | None
     title: str | None
     page_count: int | None
     doc_metadata: dict[str, Any]

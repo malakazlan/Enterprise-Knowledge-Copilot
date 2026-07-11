@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentPrincipal, DbSession
 from app.schemas.search import SearchRequest, SearchResponse, SearchResultItem
+from app.services.access import allowed_document_ids, restrict_requested_ids
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
 from app.services.retrieval.service import RetrievalService
 
@@ -16,14 +17,16 @@ router = APIRouter(tags=["search"])
 
 @router.post("", response_model=SearchResponse, summary="Hybrid search (dense + BM25 + rerank)")
 async def search(
-    payload: SearchRequest, db: DbSession, _principal: CurrentPrincipal
+    payload: SearchRequest, db: DbSession, principal: CurrentPrincipal
 ) -> SearchResponse:
+    allowed = await allowed_document_ids(db, principal)
+    effective_ids = restrict_requested_ids(allowed, payload.document_ids)
     profile = get_profile(payload.profile or DEFAULT_PROFILE)
     outcome = await RetrievalService(db).search(
         payload.query,
         profile,
         top_k=payload.top_k,
-        document_ids=payload.document_ids,
+        document_ids=effective_ids,
     )
     return SearchResponse(
         query=payload.query,

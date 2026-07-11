@@ -28,7 +28,7 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
 
       - name: Install dependencies
-        run: pip install -e ".[dev,ocr,mcp]"
+        run: pip install -e ".[dev,ocr,mcp,office]"
 
       - name: Ruff (lint)
         run: ruff check app tests

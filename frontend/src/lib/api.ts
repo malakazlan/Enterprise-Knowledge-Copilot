@@ -10,6 +10,8 @@ import type {
   ProfileSummary,
   QueryResponse,
   ReviewItem,
+  ThreadDetail,
+  ThreadRead,
   TokenPair,
   WebhookRead,
   UserRead,
@@ -210,3 +212,64 @@ export const deleteWebhook = (id: string): Promise<void> =>
 
 export const syncFolder = (path: string): Promise<FolderSyncReport> =>
   request<FolderSyncReport>("/connectors/folder/sync", { method: "POST", json: { path } });
+
+// ---- threads & streaming ----
+
+export const listThreads = (): Promise<ThreadRead[]> => request<ThreadRead[]>("/threads");
+
+export const createThread = (): Promise<ThreadRead> =>
+  request<ThreadRead>("/threads", { method: "POST", json: {} });
+
+export const getThread = (id: string): Promise<ThreadDetail> =>
+  request<ThreadDetail>(`/threads/${id}`);
+
+export const deleteThread = (id: string): Promise<void> =>
+  request<void>(`/threads/${id}`, { method: "DELETE" });
+
+/** Stream a verified answer. Calls onToken as text arrives, resolves with the
+ *  final QueryResponse from the `result` event. */
+export async function streamQuery(
+  query: string,
+  profile: string | null,
+  threadId: string | null,
+  onToken: (text: string) => void,
+): Promise<QueryResponse> {
+  const token = getAccessToken();
+  const res = await fetch(`${V1}/query/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      query,
+      ...(profile ? { profile } : {}),
+      ...(threadId ? { thread_id: threadId } : {}),
+    }),
+  });
+  if (!res.ok || !res.body) throw await parseError(res);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let eventName = "";
+  let result: QueryResponse | null = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) eventName = line.slice(7).trim();
+      else if (line.startsWith("data: ")) {
+        const data: unknown = JSON.parse(line.slice(6));
+        if (eventName === "token") onToken((data as { text: string }).text);
+        else if (eventName === "result") result = data as QueryResponse;
+      }
+    }
+  }
+  if (!result) throw new ApiError(502, "Stream ended without a result.");
+  return result;
+}

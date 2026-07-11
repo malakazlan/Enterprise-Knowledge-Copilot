@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 class QueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     profile: str | None = None
+    # Attach the exchange to a conversation (must belong to the caller).
+    thread_id: uuid.UUID | None = None
     # Restrict answering to specific documents.
     document_ids: list[uuid.UUID] | None = Field(default=None, max_length=100)
     # Overrides the profile's final_top_n evidence count when provided.

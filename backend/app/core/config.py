@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     vector_store_provider: str = "memory"
     sparse_provider: str = "local-bm25"
     reranker_provider: str = "lexical"
+    # Local ONNX inference (embedder_provider=fastembed / reranker_provider=onnx).
+    fastembed_model: str = "BAAI/bge-small-en-v1.5"
+    reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    # Where downloaded model weights live; None uses the fastembed default cache.
+    model_cache_dir: str | None = None
     # CPU-tier OCR for scanned pages/images ("rapidocr" | "none"). A GPU-tier
     # VLM OCR adapter (served via vLLM) plugs into the same port later.
     ocr_provider: str = "rapidocr"

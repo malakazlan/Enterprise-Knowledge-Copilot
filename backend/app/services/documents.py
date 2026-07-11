@@ -29,6 +29,7 @@ class DocumentService:
         content_type: str | None,
         data: bytes,
         uploaded_by: uuid.UUID | None = None,
+        collection_id: uuid.UUID | None = None,
     ) -> tuple[Document, IngestionJob]:
         document_id = uuid.uuid4()
         safe_name = Path(filename).name or "upload"
@@ -43,6 +44,7 @@ class DocumentService:
             checksum=hashlib.sha256(data).hexdigest(),
             storage_uri=storage_key,
             uploaded_by=uploaded_by,
+            collection_id=collection_id,
         )
         job = IngestionJob(document_id=document_id, status=JobStatus.QUEUED)
         self.db.add(document)

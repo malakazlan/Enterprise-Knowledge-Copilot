@@ -6,15 +6,17 @@
   (verified against 2.45). The output dimension is pinned to the configured
   ``embedding_dimension`` via the API's ``dimensions`` parameter so vectors
   always match the vector-store collection.
-
-Local semantic embedders (sentence-transformers/BGE) implement the same port
-as an optional heavy extra.
+- ``FastEmbedEmbedder`` — local neural embeddings (BGE et al.) on CPU via
+  ONNX (fastembed, verified against 0.8). Real semantic search with zero
+  external calls after the one-time model download; ``[local]`` extra.
 """
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
+from typing import Any
 
 import httpx
 import openai
@@ -81,3 +83,41 @@ class OpenAIEmbedder:
         # The API documents index-aligned results; sort defensively anyway.
         ordered = sorted(response.data, key=lambda item: item.index)
         return [item.embedding for item in ordered]
+
+
+class FastEmbedEmbedder:
+    """Local ONNX embeddings; inference runs in a worker thread (CPU-bound)."""
+
+    name = "fastembed"
+
+    def __init__(self, *, model: str, cache_dir: str | None = None) -> None:
+        try:
+            from fastembed import TextEmbedding
+        except ImportError as exc:  # pragma: no cover - exercised via factory error
+            raise ServiceUnavailableError(
+                "fastembed is not installed; add the [local] extra to use "
+                "EMBEDDER_PROVIDER=fastembed."
+            ) from exc
+
+        supported: dict[str, Any] = {
+            entry["model"]: entry for entry in TextEmbedding.list_supported_models()
+        }
+        if model not in supported:
+            raise ServiceUnavailableError(f"fastembed does not support model '{model}'.")
+
+        self.model_name = model
+        self.dimension = int(supported[model]["dim"])
+        self._model = TextEmbedding(model, cache_dir=cache_dir)
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        return await asyncio.to_thread(
+            lambda: [vector.tolist() for vector in self._model.embed(texts)]
+        )
+
+    async def embed_query(self, query: str) -> list[float]:
+        """Query-side embedding (adds the model's query instruction, e.g. BGE)."""
+        return await asyncio.to_thread(
+            lambda: next(iter(self._model.query_embed([query]))).tolist()
+        )

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, deleteDocument, listDocuments, uploadDocument } from "@/lib/api";
 import type { DocumentRead } from "@/lib/types";
 import { PageHead } from "@/components/shell";
-import { Button, Callout, Card, EmptyState, Pill, Spinner } from "@/components/ui";
+import { Button, Callout, Card, EmptyState, Pill, Spinner, TableSkeleton } from "@/components/ui";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
@@ -110,7 +110,7 @@ export default function LibraryPage() {
         <span>
           <span className="block text-sm font-semibold">Drop files to upload, or browse</span>
           <span className="mt-0.5 block text-[12.5px] text-ink-2">
-            pdf · png / jpg · md · txt — processed on this server, nothing leaves it
+            pdf · docx / pptx / xlsx · png / jpg · md / txt — processed on this server, nothing leaves it
           </span>
         </span>
         <span className="ml-auto">
@@ -120,7 +120,7 @@ export default function LibraryPage() {
           ref={fileInput}
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.md,.txt"
+          accept=".pdf,.png,.jpg,.jpeg,.md,.txt,.docx,.pptx,.xlsx"
           className="hidden"
           onChange={(e) => {
             void handleFiles(e.target.files);
@@ -139,9 +139,7 @@ export default function LibraryPage() {
 
       <Card className="overflow-hidden">
         {docs === null ? (
-          <div className="flex justify-center py-14">
-            <Spinner />
-          </div>
+          <TableSkeleton rows={5} />
         ) : docs.length === 0 ? (
           <EmptyState
             title="No documents yet"

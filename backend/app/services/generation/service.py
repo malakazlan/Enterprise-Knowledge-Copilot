@@ -71,6 +71,7 @@ class GenerationService:
         *,
         user_id: uuid.UUID | None = None,
         api_key_id: uuid.UUID | None = None,
+        thread_id: uuid.UUID | None = None,
         document_ids: list[uuid.UUID] | None = None,
         top_k: int | None = None,
     ) -> AnswerOutcome:
@@ -96,7 +97,9 @@ class GenerationService:
 
         outcome.retrieval_took_ms = search.took_ms
         outcome.took_ms = round((time.perf_counter() - started) * 1000, 2)
-        outcome.query_id = await self._persist(query, profile, outcome, user_id, api_key_id)
+        outcome.query_id = await self._persist(
+            query, profile, outcome, user_id, api_key_id, thread_id
+        )
 
         logger.info(
             "query_completed",
@@ -191,11 +194,13 @@ class GenerationService:
         outcome: AnswerOutcome,
         user_id: uuid.UUID | None,
         api_key_id: uuid.UUID | None,
+        thread_id: uuid.UUID | None,
     ) -> uuid.UUID:
         log = QueryLog(
             id=uuid.uuid4(),
             user_id=user_id,
             api_key_id=api_key_id,
+            thread_id=thread_id,
             profile=profile.name,
             query=query,
             answer=outcome.answer,

@@ -33,6 +33,9 @@ class QueryLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     api_key_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True
     )
+    thread_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("chat_threads.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     profile: Mapped[str] = mapped_column(String(64), nullable=False)
     query: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str | None] = mapped_column(Text, nullable=True)

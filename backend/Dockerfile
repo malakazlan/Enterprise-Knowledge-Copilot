@@ -28,8 +28,9 @@ RUN python -m venv /opt/venv && pip install --upgrade pip
 # Dependency metadata first for better layer caching.
 COPY backend/pyproject.toml backend/README.md ./
 COPY backend/app ./app
-# Ship with CPU-tier OCR so scanned documents work out of the box.
-RUN pip install ".[ocr]"
+# Ship with CPU-tier OCR and Office parsing so common enterprise documents
+# work out of the box.
+RUN pip install ".[ocr,office]"
 
 # ----- Runtime: minimal, non-root, no Node -----
 FROM python:3.11-slim AS runtime
