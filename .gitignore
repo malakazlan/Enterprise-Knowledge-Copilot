@@ -67,5 +67,8 @@ Thumbs.db
 # ---- Docker ----
 .docker/
 
+# ---- Internal design docs (local only for now) ----
+/docs/
+
 # ---- Alembic local ----
 backend/alembic/versions/*.pyc
