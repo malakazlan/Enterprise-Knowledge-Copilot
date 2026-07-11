@@ -42,6 +42,8 @@ dependencies = [
     # LLM provider SDKs (activated via LLM_PROVIDER config)
     "anthropic>=0.40",
     "openai>=1.60",
+    # Document parsing
+    "pypdf>=5.0",
 ]
 
 [project.optional-dependencies]
