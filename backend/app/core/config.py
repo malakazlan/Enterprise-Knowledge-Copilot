@@ -8,10 +8,10 @@ precedence over ``.env`` so container/orchestrator config wins in production.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["local", "dev", "staging", "production"]
 
@@ -47,7 +47,11 @@ class Settings(BaseSettings):
     refresh_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
     # --- CORS ---
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # NoDecode: accept a plain comma-separated string from .env (the validator
+    # splits it) instead of pydantic-settings' default JSON decoding.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:5173"]
+    )
 
     # --- Datastores ---
     database_url: str = "postgresql+asyncpg://ekc:ekc@localhost:5432/ekc"
