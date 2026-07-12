@@ -111,8 +111,11 @@ async def list_documents(
     principal: CurrentPrincipal,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    stale: bool = Query(default=False, description="Only documents past their verify-by date"),
 ) -> list[DocumentRead]:
-    documents = await DocumentService(db, storage).list_documents(limit=limit, offset=offset)
+    documents = await DocumentService(db, storage).list_documents(
+        limit=limit, offset=offset, stale_only=stale
+    )
     allowed = await allowed_document_ids(db, principal)
     if allowed is not None:
         permitted = set(allowed)

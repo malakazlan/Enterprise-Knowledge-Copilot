@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 
 import structlog
@@ -57,10 +58,13 @@ class DocumentService:
     async def get(self, document_id: uuid.UUID) -> Document | None:
         return await self.db.get(Document, document_id)
 
-    async def list_documents(self, *, limit: int = 50, offset: int = 0) -> Sequence[Document]:
-        result = await self.db.execute(
-            select(Document).order_by(desc(Document.created_at)).limit(limit).offset(offset)
-        )
+    async def list_documents(
+        self, *, limit: int = 50, offset: int = 0, stale_only: bool = False
+    ) -> Sequence[Document]:
+        query = select(Document).order_by(desc(Document.created_at)).limit(limit).offset(offset)
+        if stale_only:
+            query = query.where(Document.verify_by < datetime.now(timezone.utc))
+        result = await self.db.execute(query)
         return result.scalars().all()
 
     async def list_jobs(self, document_id: uuid.UUID) -> Sequence[IngestionJob]:

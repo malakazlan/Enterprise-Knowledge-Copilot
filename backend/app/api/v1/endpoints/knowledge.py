@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -35,6 +36,8 @@ class KnowledgeEntry(BaseModel):
     # Who/what learned this (agent name, workflow id); recorded in metadata.
     source: str | None = Field(default=None, max_length=200)
     collection_id: uuid.UUID | None = None
+    # Lifecycle: mark this knowledge for re-verification after N days.
+    verify_in_days: int | None = Field(default=None, ge=1, le=3650)
 
 
 def _slug(title: str) -> str:
@@ -69,6 +72,8 @@ async def create_entry(
         uploaded_by=writer.user_id,
         collection_id=payload.collection_id,
     )
+    if payload.verify_in_days is not None:
+        document.verify_by = datetime.now(timezone.utc) + timedelta(days=payload.verify_in_days)
     document.doc_metadata = {
         **document.doc_metadata,
         "knowledge_entry": True,

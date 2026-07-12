@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 
 from httpx import AsyncClient
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.document import Document
 from app.models.user import User, UserRole
 
 MakeUser = Callable[..., Awaitable[User]]
@@ -125,3 +130,42 @@ async def test_knowledge_requires_writer_role(
         json={"title": "Sneaky entry", "content": "should not be allowed to write this"},
     )
     assert resp.status_code == 403
+
+
+async def test_knowledge_lifecycle_stale_surfacing(
+    client: AsyncClient,
+    make_user: MakeUser,
+    auth_headers: AuthHeaders,
+    db_session: AsyncSession,
+) -> None:
+    headers = await _admin(client, make_user, auth_headers)
+
+    entry = await client.post(
+        KNOWLEDGE,
+        headers=headers,
+        json={
+            "title": "Quarterly pricing sheet",
+            "content": "Standard seat price is 49 dollars per month until further notice.",
+            "verify_in_days": 30,
+        },
+    )
+    assert entry.status_code == 201
+    assert entry.json()["verify_by"] is not None
+
+    # Not stale yet: verify_by is in the future.
+    stale = (await client.get("/api/v1/documents?stale=true", headers=headers)).json()
+    assert stale == []
+
+    # Force it past due directly, as time passing would.
+    await db_session.execute(
+        update(Document)
+        .where(Document.id == uuid.UUID(entry.json()["id"]))
+        .values(verify_by=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    )
+    await db_session.commit()
+
+    stale = (await client.get("/api/v1/documents?stale=true", headers=headers)).json()
+    assert [d["filename"] for d in stale] == ["quarterly-pricing-sheet.md"]
+
+    stats = (await client.get("/api/v1/admin/stats", headers=headers)).json()
+    assert stats["documents_stale"] == 1

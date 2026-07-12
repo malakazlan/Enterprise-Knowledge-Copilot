@@ -36,6 +36,7 @@ class ReviewResolve(BaseModel):
 class AdminStats(BaseModel):
     documents_total: int
     documents_failed: int
+    documents_stale: int
     chunks_total: int
     queries_total: int
     queries_answered: int

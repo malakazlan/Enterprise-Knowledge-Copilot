@@ -21,6 +21,7 @@ class DocumentRead(BaseModel):
     checksum: str
     status: IngestionStatus
     collection_id: uuid.UUID | None
+    verify_by: datetime | None
     title: str | None
     page_count: int | None
     doc_metadata: dict[str, Any]
