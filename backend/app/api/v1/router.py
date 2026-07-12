@@ -10,9 +10,11 @@ from app.api.v1.endpoints import (
     auth,
     collections,
     connectors,
+    context,
     documents,
     evals,
     health,
+    knowledge,
     profiles,
     query,
     reviews,
@@ -33,6 +35,8 @@ api_router.include_router(collections.router, prefix="/collections")
 api_router.include_router(profiles.router, prefix="/profiles")
 api_router.include_router(search.router, prefix="/search")
 api_router.include_router(query.router, prefix="/query")
+api_router.include_router(context.router, prefix="/context")
+api_router.include_router(knowledge.router, prefix="/knowledge")
 api_router.include_router(threads.router, prefix="/threads")
 api_router.include_router(evals.router, prefix="/evals")
 api_router.include_router(reviews.router, prefix="/reviews")
