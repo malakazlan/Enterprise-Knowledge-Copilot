@@ -9,6 +9,8 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)](frontend/package.json)
 
+<img src="assets/architecture.png" alt="Enterprise Knowledge Copilot — architecture: ingestion pipeline, hybrid retrieval and reranking, grounded generation with confidence scoring, agent context layer, integrations, and human-in-the-loop governance" width="100%">
+
 </div>
 
 Enterprises sit on thousands of PDFs, contracts, SOPs, and manuals — and employees waste hours searching them. Generic chatbots hallucinate answers no compliance team will accept, and SaaS RAG means shipping sensitive documents to someone else's cloud.
