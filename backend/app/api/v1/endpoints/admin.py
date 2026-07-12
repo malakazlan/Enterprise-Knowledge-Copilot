@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -40,6 +41,9 @@ async def stats(db: DbSession) -> AdminStats:
         documents_total=await count(select(func.count(Document.id))),
         documents_failed=await count(
             select(func.count(Document.id)).where(Document.status == IngestionStatus.FAILED)
+        ),
+        documents_stale=await count(
+            select(func.count(Document.id)).where(Document.verify_by < datetime.now(timezone.utc))
         ),
         chunks_total=await count(select(func.count(DocumentChunk.id))),
         queries_total=await count(select(func.count(QueryLog.id))),

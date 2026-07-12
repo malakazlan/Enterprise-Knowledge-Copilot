@@ -40,6 +40,10 @@ function extractionPill(doc: DocumentRead) {
   return <Pill tone="gray">Text</Pill>;
 }
 
+function isStale(doc: DocumentRead): boolean {
+  return doc.verify_by !== null && new Date(doc.verify_by).getTime() < Date.now();
+}
+
 function statusPill(status: DocumentRead["status"]) {
   switch (status) {
     case "completed":
@@ -275,9 +279,12 @@ export default function LibraryPage() {
     id ? (collections.find((c) => c.id === id)?.name ?? "restricted") : null;
 
   const visible =
-    docs?.filter((d) =>
-      filter === "all" ? true : filter === "shared" ? !d.collection_id : d.collection_id === filter,
-    ) ?? null;
+    docs?.filter((d) => {
+      if (filter === "all") return true;
+      if (filter === "shared") return !d.collection_id;
+      if (filter === "stale") return isStale(d);
+      return d.collection_id === filter;
+    }) ?? null;
 
   return (
     <div>
@@ -352,11 +359,12 @@ export default function LibraryPage() {
         />
       </div>
 
-      {collections.length > 0 && (
+      {(collections.length > 0 || docs?.some(isStale)) && (
         <div className="mb-3.5 flex flex-wrap items-center gap-2">
           {[
             { key: "all", label: "All" },
             { key: "shared", label: "Shared" },
+            { key: "stale", label: "Stale" },
             ...collections.map((c) => ({ key: c.id, label: c.name })),
           ].map((pill) => (
             <button
@@ -410,7 +418,19 @@ export default function LibraryPage() {
                   key={doc.id}
                   className="group border-t border-line transition-colors hover:bg-subtle"
                 >
-                  <td className="px-4 py-3 font-semibold">{doc.filename}</td>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-2 font-semibold">
+                      {doc.filename}
+                      {doc.doc_metadata["knowledge_entry"] === true && (
+                        <Pill tone="accent">agent note</Pill>
+                      )}
+                      {isStale(doc) && (
+                        <Pill tone="warn" dot>
+                          stale
+                        </Pill>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     {doc.collection_id ? (
                       <Pill tone="accent">{collectionName(doc.collection_id)}</Pill>

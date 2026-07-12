@@ -111,3 +111,26 @@ async def test_setup_copilot_prompt_registered() -> None:
     result = await mcp_server.mcp.get_prompt("setup-copilot")
     text = result.messages[0].content.text
     assert "INTERVIEW" in text and "eval_run" in text
+
+
+async def test_agent_context_loop(mcp_env: None) -> None:
+    """The context-maintainer loop: write knowledge -> get it back as context."""
+    written = await mcp_server.write_knowledge(
+        "Acme escalation contact",
+        "Escalations for Acme Corp go to Jordan Reyes in customer success.",
+        source="support-agent",
+        verify_in_days=90,
+    )
+    assert written["status"] == "completed"
+    assert written["verify_by"] is not None
+
+    pack = await mcp_server.get_context("Who handles Acme escalations?", max_tokens=800)
+    assert "Jordan Reyes" in pack["context"]
+    assert pack["tokens_used"] <= 800
+    assert pack["sources"][0]["filename"] == "acme-escalation-contact.md"
+
+
+async def test_new_tools_registered() -> None:
+    tools = await mcp_server.mcp.list_tools()
+    names = {tool.name for tool in tools}
+    assert {"get_context", "write_knowledge"} <= names

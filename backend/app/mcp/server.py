@@ -258,6 +258,52 @@ def setup_copilot() -> str:
     )
 
 
+@mcp.tool()
+async def get_context(task: str, max_tokens: int = 2000) -> dict[str, Any]:
+    """Assemble a token-budgeted context pack for a task.
+
+    Returns ranked, deduplicated passages with [Source: file, p.N] provenance
+    headers, cut to the budget — inject the `context` string into your prompt
+    and cite the sources to the user.
+    """
+    data = await _call(
+        "POST", "/context", {"task": task, "max_tokens": max(100, min(max_tokens, 16000))}
+    )
+    return {
+        "context": data["context"],
+        "tokens_used": data["tokens_used"],
+        "sources": [{"filename": s["filename"], "page": s["page_number"]} for s in data["sources"]],
+    }
+
+
+@mcp.tool()
+async def write_knowledge(
+    title: str,
+    content: str,
+    source: str | None = None,
+    verify_in_days: int | None = None,
+) -> dict[str, Any]:
+    """Deposit a knowledge entry (something learned worth keeping).
+
+    The entry becomes retrievable within seconds and is attributed to
+    `source` (your agent/workflow name). Set `verify_in_days` when the fact
+    can go stale so humans re-verify it in time. Requires a reviewer- or
+    admin-role API key.
+    """
+    payload: dict[str, Any] = {"title": title, "content": content}
+    if source:
+        payload["source"] = source
+    if verify_in_days:
+        payload["verify_in_days"] = verify_in_days
+    data = await _call("POST", "/knowledge", payload)
+    return {
+        "document_id": data["id"],
+        "filename": data["filename"],
+        "status": data["status"],
+        "verify_by": data["verify_by"],
+    }
+
+
 def main() -> None:
     """Console-script entry point (stdio transport)."""
     mcp.run()

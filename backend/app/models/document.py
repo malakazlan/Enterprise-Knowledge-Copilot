@@ -74,6 +74,11 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     collection_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("collections.id", ondelete="SET NULL"), index=True, nullable=True
     )
+    # Knowledge lifecycle: re-verify this document by this date; past-due
+    # documents surface as "stale" in listings and admin stats.
+    verify_by: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=True
+    )
 
 
 class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):

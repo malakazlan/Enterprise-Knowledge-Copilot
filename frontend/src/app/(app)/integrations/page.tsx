@@ -244,12 +244,25 @@ function AutomationNotes() {
           </code>
         </div>
         <div>
+          <p className="font-semibold text-ink">Context packs — token-budgeted context for agent prompts</p>
+          <code className="mt-1 block overflow-x-auto rounded-lg bg-subtle px-3 py-2 font-mono text-[11.5px]">
+            POST /api/v1/context {"{"} &quot;task&quot;: &quot;…&quot;, &quot;max_tokens&quot;: 2000 {"}"}
+          </code>
+        </div>
+        <div>
+          <p className="font-semibold text-ink">Knowledge write-back — agents deposit what they learn</p>
+          <code className="mt-1 block overflow-x-auto rounded-lg bg-subtle px-3 py-2 font-mono text-[11.5px]">
+            POST /api/v1/knowledge {"{"} &quot;title&quot;: &quot;…&quot;, &quot;content&quot;: &quot;…&quot;, &quot;verify_in_days&quot;: 90 {"}"}
+          </code>
+          <p className="mt-1">Requires a reviewer- or admin-role key; entries are retrievable within seconds.</p>
+        </div>
+        <div>
           <p className="font-semibold text-ink">MCP — connect Claude and other AI agents</p>
           <code className="mt-1 block overflow-x-auto rounded-lg bg-subtle px-3 py-2 font-mono text-[11.5px]">
             {"{"} &quot;command&quot;: &quot;ekc-mcp&quot;, &quot;env&quot;: {"{"} &quot;EKC_URL&quot;: &quot;…&quot;, &quot;EKC_API_KEY&quot;: &quot;ekc_…&quot; {"}"} {"}"}
           </code>
           <p className="mt-1">
-            9 tools including grounded ask/search and the <b>setup-copilot</b> interview prompt.
+            11 tools including grounded ask/search, context packs, knowledge write-back, and the <b>setup-copilot</b> interview prompt.
           </p>
         </div>
         <p>

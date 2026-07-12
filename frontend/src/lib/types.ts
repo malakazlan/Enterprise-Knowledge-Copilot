@@ -23,6 +23,7 @@ export interface DocumentRead {
   checksum: string;
   status: "pending" | "processing" | "completed" | "failed";
   collection_id: string | null;
+  verify_by: string | null;
   title: string | null;
   page_count: number | null;
   doc_metadata: Record<string, unknown>;
@@ -82,6 +83,7 @@ export interface ReviewItem {
 export interface AdminStats {
   documents_total: number;
   documents_failed: number;
+  documents_stale: number;
   chunks_total: number;
   queries_total: number;
   queries_answered: number;
