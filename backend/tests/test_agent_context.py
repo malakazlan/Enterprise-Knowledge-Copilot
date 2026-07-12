@@ -66,9 +66,7 @@ async def test_context_pack_respects_access_control(
     client: AsyncClient, make_user: MakeUser, auth_headers: AuthHeaders
 ) -> None:
     admin = await _admin(client, make_user, auth_headers)
-    created = await client.post(
-        "/api/v1/collections", headers=admin, json={"name": "secret"}
-    )
+    created = await client.post("/api/v1/collections", headers=admin, json={"name": "secret"})
     collection_id = created.json()["id"]
     secret = await client.post(
         f"/api/v1/documents?collection_id={collection_id}",
