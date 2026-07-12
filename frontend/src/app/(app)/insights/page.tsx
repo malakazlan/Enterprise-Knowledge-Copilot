@@ -86,7 +86,8 @@ export default function InsightsPage() {
         <Stat
           label="Documents"
           value={String(stats.documents_total)}
-          sub={`${stats.chunks_total} chunks${stats.documents_failed ? ` · ${stats.documents_failed} failed` : ""}`}
+          sub={`${stats.chunks_total} chunks${stats.documents_failed ? ` · ${stats.documents_failed} failed` : ""}${stats.documents_stale ? ` · ${stats.documents_stale} stale` : ""}`}
+          tone={stats.documents_stale > 0 ? "warn" : undefined}
         />
         <Stat
           label="Queries"
