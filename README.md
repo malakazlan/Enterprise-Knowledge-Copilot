@@ -25,8 +25,11 @@ Enterprises sit on thousands of PDFs, contracts, SOPs, and manuals — and emplo
 
 **Control who sees what.** Collections put an access boundary around documents, enforced *inside* the retrieval pipeline (both search channels), not filtered after the fact. Membership is managed in the UI; revocation takes effect on the next query.
 
-**Plug in your agents and apps.**
-- **MCP server** (`ekc-mcp`) — Claude Desktop/Code or any MCP client gets `ask`, `search`, and admin tools, plus a `setup-copilot` prompt that interviews an admin and configures the deployment conversationally
+**Be the context layer for your agents.** Agentic workflows don't just ask questions — they consume and maintain context:
+- **Context packs** — `POST /context` returns the best N tokens of ranked, deduplicated passages with `[Source: file, p.N]` provenance, ready to inject into any agent's prompt; access control applies at retrieval
+- **Knowledge write-back** — agents deposit what they learn (`POST /knowledge`): small attributed entries that become retrievable with citations within seconds, governed like every other document
+- **Knowledge lifecycle** — entries carry `verify_by` dates; past-due knowledge surfaces as *stale* in the Library and admin stats, so context rot is visible and assignable
+- **MCP server** (`ekc-mcp`) — Claude Desktop/Code or any MCP client gets 11 tools (`ask`, `search`, `get_context`, `write_knowledge`, evals, admin) plus a `setup-copilot` prompt that configures the deployment conversationally
 - **REST API** — headless usage with role-scoped API keys (`X-API-Key`), batch endpoint for pipeline workloads, SSE streaming
 - **Webhooks** — HMAC-signed pushes on refusals, review flags, resolutions, and ingestion events, with retry + backoff
 
