@@ -135,4 +135,4 @@ async def limit_query_rate(request: Request, principal: CurrentPrincipal) -> Non
 
     if not settings.rate_limit_enabled:
         return
-    check_query_rate(query_rate_key(request, principal))
+    await check_query_rate(query_rate_key(request, principal))

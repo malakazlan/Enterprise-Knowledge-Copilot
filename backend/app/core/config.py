@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     # Request rate limits (per replica): auth is per client IP, query/search
     # per authenticated principal.
     rate_limit_enabled: bool = True
+    # memory = per replica (default); redis = shared across replicas.
+    rate_limit_backend: str = "memory"
     rate_limit_auth_per_minute: int = 20
     rate_limit_query_per_minute: int = 120
     # OIDC single sign-on (enabled when all four are set). Works with Entra,
