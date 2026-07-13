@@ -74,16 +74,22 @@ class GenerationService:
         thread_id: uuid.UUID | None = None,
         document_ids: list[uuid.UUID] | None = None,
         top_k: int | None = None,
+        search_query: str | None = None,
     ) -> AnswerOutcome:
         started = time.perf_counter()
 
-        search = await self.retrieval.search(query, profile, top_k=top_k, document_ids=document_ids)
+        # A condensed (standalone) form may drive retrieval and generation;
+        # the user's original words are what gets persisted and audited.
+        effective = search_query or query
+        search = await self.retrieval.search(
+            effective, profile, top_k=top_k, document_ids=document_ids
+        )
         chunks = search.results
 
         if not chunks:
             outcome = self._refusal(REASON_NO_DOCUMENTS, model=self.generator.name, sources=0)
         else:
-            draft = await self.generator.generate(query, chunks, profile)
+            draft = await self.generator.generate(effective, chunks, profile)
             if draft.text is None:
                 outcome = self._refusal(
                     REASON_INSUFFICIENT_EVIDENCE, model=draft.model, sources=len(chunks)
