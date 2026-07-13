@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   BarChart3,
   Check,
+  FlaskConical,
   FolderOpen,
   KeyRound,
   LogOut,
@@ -26,6 +27,7 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/library", label: "Library", icon: FolderOpen },
   { href: "/review", label: "Review queue", icon: Check },
   { href: "/insights", label: "Insights", icon: BarChart3 },
+  { href: "/evals", label: "Evaluations", icon: FlaskConical },
   { href: "/keys", label: "API keys", icon: KeyRound },
   { href: "/integrations", label: "Integrations", icon: Zap },
 ];

@@ -6,12 +6,16 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import {
   ApiError,
+  createConnector,
   createWebhook,
+  deleteConnector,
   deleteWebhook,
+  listCollections,
+  listConnectors,
   listWebhooks,
-  syncFolder,
+  syncConnector,
 } from "@/lib/api";
-import type { FolderSyncReport, WebhookRead } from "@/lib/types";
+import type { CollectionRead, ConnectorRead, WebhookRead } from "@/lib/types";
 import { PageHead } from "@/components/shell";
 import { Button, Callout, Card, Pill, Spinner } from "@/components/ui";
 
@@ -23,46 +27,130 @@ const EVENTS = [
   "document.failed",
 ] as const;
 
-function FolderSync() {
+function relSync(iso: string | null): string {
+  if (!iso) return "never synced";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 60) return `synced ${mins}m ago`;
+  if (mins < 1440) return `synced ${Math.round(mins / 60)}h ago`;
+  return `synced ${Math.round(mins / 1440)}d ago`;
+}
+
+const PLANNED = ["S3 / MinIO", "SharePoint", "Google Drive"];
+
+function Connectors() {
+  const [connectors, setConnectors] = useState<ConnectorRead[] | null>(null);
+  const [collections, setCollections] = useState<CollectionRead[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
   const [path, setPath] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [report, setReport] = useState<FolderSyncReport | null>(null);
+  const [collectionId, setCollectionId] = useState("");
+  const [syncing, setSyncing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(event: FormEvent) {
+  const refresh = useCallback(() => {
+    listConnectors()
+      .then(setConnectors)
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : "Could not reach the server."),
+      );
+    listCollections()
+      .then(setCollections)
+      .catch(() => setCollections([]));
+  }, []);
+
+  useEffect(refresh, [refresh]);
+
+  async function create(event: FormEvent) {
     event.preventDefault();
-    setBusy(true);
     setError(null);
-    setReport(null);
     try {
-      setReport(await syncFolder(path.trim()));
+      await createConnector(name.trim(), "folder", {
+        path: path.trim(),
+        recursive: true,
+        ...(collectionId ? { collection_id: collectionId } : {}),
+      });
+      setName("");
+      setPath("");
+      setCollectionId("");
+      setAdding(false);
+      refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not reach the server.");
-    } finally {
-      setBusy(false);
+      setError(err instanceof ApiError ? err.message : "Could not save the connector.");
     }
+  }
+
+  async function runSync(id: string) {
+    setSyncing(id);
+    setError(null);
+    try {
+      await syncConnector(id);
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Sync failed.");
+    } finally {
+      setSyncing(null);
+    }
+  }
+
+  async function remove(connector: ConnectorRead) {
+    if (!window.confirm(`Delete connector “${connector.name}”? Documents stay.`)) return;
+    await deleteConnector(connector.id).catch(() => undefined);
+    refresh();
   }
 
   return (
     <Card className="mb-5 px-5 py-4">
-      <h2 className="text-[15px] font-semibold">Folder connector</h2>
-      <p className="mt-1 mb-3 max-w-[620px] text-[12.5px] text-ink-2">
-        Ingest every new file from a folder on the server — a mounted network share, a synced
-        bucket, or a drop folder. Files are deduplicated by content, so re-syncing is safe;
-        schedule it with cron to keep the corpus current.
-      </p>
-      <form onSubmit={run} className="flex flex-wrap items-center gap-2.5">
-        <input
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-          placeholder="D:\\shares\\contracts   or   /mnt/policies"
-          required
-          className="min-w-[300px] flex-1 rounded-lg border border-line-strong bg-canvas px-3 py-2 font-mono text-[12.5px] shadow-sm placeholder:text-ink-3 focus:border-accent focus:outline-none"
-        />
-        <Button variant="primary" type="submit" disabled={busy || !path.trim()}>
-          {busy ? "Syncing…" : "Sync now"}
-        </Button>
-      </form>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[15px] font-semibold">Connectors</h2>
+        <p className="text-[12.5px] text-ink-2">
+          Configure a source once; sync on demand or on a schedule. Re-syncs are idempotent.
+        </p>
+        <span className="ml-auto">
+          <Button variant="primary" small onClick={() => setAdding((v) => !v)}>
+            + Folder connector
+          </Button>
+        </span>
+      </div>
+
+      {adding && (
+        <form
+          onSubmit={create}
+          className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-subtle px-3 py-2.5"
+        >
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="name, e.g. hq-share"
+            required
+            className="w-[160px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 text-[12.5px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            placeholder="server path, e.g. /mnt/policies"
+            required
+            className="min-w-[220px] flex-1 rounded-lg border border-line-strong bg-canvas px-3 py-1.5 font-mono text-[12px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          {collections.length > 0 && (
+            <select
+              value={collectionId}
+              onChange={(e) => setCollectionId(e.target.value)}
+              className="rounded-lg border border-line-strong bg-canvas px-2.5 py-1.5 text-[12.5px] text-ink-2 focus:outline-none"
+            >
+              <option value="">into: shared</option>
+              {collections.map((c) => (
+                <option key={c.id} value={c.id}>
+                  into: {c.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button variant="primary" small type="submit" disabled={!name.trim() || !path.trim()}>
+            Save
+          </Button>
+        </form>
+      )}
+
       {error && (
         <div className="mt-3">
           <Callout tone="warn" icon="⚠">
@@ -70,25 +158,65 @@ function FolderSync() {
           </Callout>
         </div>
       )}
-      {report && (
-        <div className="mt-3 rounded-lg border border-line bg-subtle px-4 py-3 text-[12.5px]">
-          <p>
-            Scanned <b>{report.scanned}</b> · ingested <b>{report.ingested.length}</b> · already
-            known <b>{report.skipped_existing}</b> · unsupported{" "}
-            <b>{report.skipped_unsupported}</b> · failed <b>{report.failed.length}</b>
-          </p>
-          {report.ingested.length > 0 && (
-            <p className="mt-1 font-mono text-[11.5px] text-ink-2">
-              + {report.ingested.join(", ")}
-            </p>
-          )}
-          {report.failed.map((f) => (
-            <p key={f.filename} className="mt-1 font-mono text-[11.5px] text-danger">
-              ✕ {f.filename}: {f.error}
-            </p>
-          ))}
-        </div>
-      )}
+
+      <div className="mt-3">
+        {connectors === null ? (
+          <Spinner />
+        ) : connectors.length === 0 ? (
+          <p className="text-[12.5px] text-ink-3">No connectors yet.</p>
+        ) : (
+          connectors.map((connector) => (
+            <div
+              key={connector.id}
+              className="group flex flex-wrap items-center gap-2.5 border-t border-line py-2.5 first:border-t-0"
+            >
+              <span className="text-[13px] font-semibold">{connector.name}</span>
+              <Pill tone="gray">{connector.type}</Pill>
+              <code className="font-mono text-[11px] text-ink-2">
+                {String(connector.config["path"] ?? "")}
+              </code>
+              <span className="text-[11.5px] text-ink-3">{relSync(connector.last_sync_at)}</span>
+              {connector.last_sync_report && (
+                <span className="text-[11.5px] text-ink-3">
+                  · +{connector.last_sync_report.ingested.length} new,{" "}
+                  {connector.last_sync_report.skipped_existing} known
+                  {connector.last_sync_report.failed.length > 0 &&
+                    `, ${connector.last_sync_report.failed.length} failed`}
+                </span>
+              )}
+              <span className="ml-auto flex items-center gap-1">
+                <Button
+                  small
+                  disabled={syncing === connector.id}
+                  onClick={() => void runSync(connector.id)}
+                >
+                  {syncing === connector.id ? "Syncing…" : "Sync now"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  small
+                  className="text-danger opacity-0 group-hover:opacity-100"
+                  onClick={() => void remove(connector)}
+                >
+                  Delete
+                </Button>
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
+        {PLANNED.map((label) => (
+          <span
+            key={label}
+            className="rounded-full border border-dashed border-line px-3 py-1 text-[11.5px] text-ink-3"
+            title="Planned"
+          >
+            {label} · planned
+          </span>
+        ))}
+      </div>
     </Card>
   );
 }
@@ -284,7 +412,7 @@ export default function IntegrationsPage() {
         title="Integrations"
         desc="Feed the knowledge base automatically, push trust events into your workflows, and plug in your own systems and AI agents."
       />
-      <FolderSync />
+      <Connectors />
       <Webhooks />
       <AutomationNotes />
     </div>

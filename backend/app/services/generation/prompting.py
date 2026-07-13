@@ -34,6 +34,6 @@ def build_user_prompt(query: str, chunks: list[RetrievedChunk]) -> str:
     for position, chunk in enumerate(chunks, start=1):
         origin = chunk.title or chunk.filename
         page = f", page {chunk.page_number}" if chunk.page_number is not None else ""
-        blocks.append(f"[{position}] ({origin}{page})\n{chunk.content}")
+        blocks.append(f"[{position}] ({origin}{page})\n{chunk.generation_text}")
     sources = "\n\n".join(blocks)
     return f"Sources:\n\n{sources}\n\nQuestion: {query}"

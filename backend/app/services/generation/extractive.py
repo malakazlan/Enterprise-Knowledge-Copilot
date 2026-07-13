@@ -44,7 +44,7 @@ class ExtractiveGenerator:
         sentence_pool: list[tuple[str, str]] = []  # (sentence_id, sentence)
         origin: dict[str, tuple[int, int, str]] = {}  # id -> (chunk pos, sent pos, text)
         for chunk_position, chunk in enumerate(chunks, start=1):
-            for sentence_position, sentence in enumerate(split_sentences(chunk.content)):
+            for sentence_position, sentence in enumerate(split_sentences(chunk.generation_text)):
                 sentence_content = content_tokens(sentence)
                 if len(sentence_content) < _MIN_SENTENCE_CONTENT_TOKENS:
                     continue  # layout fragment, not a quotable sentence

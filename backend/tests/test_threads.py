@@ -112,3 +112,38 @@ async def test_stream_emits_meta_tokens_result(
     assert result["answered"] is True
     streamed_text = "".join(str(data["text"]) for name, data in events if name == "token").strip()
     assert streamed_text == str(result["answer"]).strip()
+
+
+async def test_followup_inherits_thread_context(
+    client: AsyncClient, make_user: MakeUser, auth_headers: AuthHeaders
+) -> None:
+    """'what about them?' has no content words — only the thread makes it answerable."""
+    headers = await _setup(client, make_user, auth_headers)
+    thread = (await client.post(THREADS, headers=headers, json={})).json()
+
+    first = await client.post(
+        "/api/v1/query",
+        headers=headers,
+        json={
+            "query": "Who must wear a helmet on the construction site?",
+            "thread_id": thread["id"],
+        },
+    )
+    assert first.json()["answered"] is True
+
+    # Outside any thread the follow-up is unanswerable (no content words).
+    alone = await client.post("/api/v1/query", headers=headers, json={"query": "what about them?"})
+    assert alone.json()["answered"] is False
+
+    # Inside the thread, condensation borrows the previous question's words.
+    followup = await client.post(
+        "/api/v1/query",
+        headers=headers,
+        json={"query": "what about them?", "thread_id": thread["id"]},
+    )
+    body = followup.json()
+    assert body["answered"] is True, body["refusal_reason"]
+    assert "helmet" in body["answer"].lower()
+    # The audit record keeps the user's original words.
+    detail = (await client.get(f"{THREADS}/{thread['id']}", headers=headers)).json()
+    assert detail["messages"][-1]["query"] == "what about them?"

@@ -180,3 +180,46 @@ export interface CollectionMemberRead {
   user_id: string;
   email: string;
 }
+
+export interface EvalDatasetRead {
+  id: string;
+  name: string;
+  description: string | null;
+  profile: string | null;
+  created_at: string;
+}
+
+export interface EvalCaseRead {
+  id: string;
+  dataset_id: string;
+  question: string;
+  expected_document_id: string | null;
+  expected_page: number | null;
+  expected_keywords: string[];
+  created_at: string;
+}
+
+export interface EvalDatasetDetail extends EvalDatasetRead {
+  cases: EvalCaseRead[];
+}
+
+export interface EvalRunRead {
+  id: string;
+  dataset_id: string;
+  profile: string;
+  case_count: number;
+  metrics: Record<string, number>;
+  results: Record<string, unknown>[];
+  created_at: string;
+}
+
+export interface ConnectorRead {
+  id: string;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  is_active: boolean;
+  last_sync_at: string | null;
+  last_sync_report: FolderSyncReport | null;
+  created_at: string;
+}

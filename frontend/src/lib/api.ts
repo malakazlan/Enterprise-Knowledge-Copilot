@@ -7,7 +7,12 @@ import type {
   ChunkRead,
   CollectionMemberRead,
   CollectionRead,
+  ConnectorRead,
   DocumentRead,
+  EvalCaseRead,
+  EvalDatasetDetail,
+  EvalDatasetRead,
+  EvalRunRead,
   FolderSyncReport,
   ProfileSummary,
   QueryResponse,
@@ -313,3 +318,57 @@ export const ssoStatus = (): Promise<{ enabled: boolean; provider: string }> =>
   request<{ enabled: boolean; provider: string }>("/auth/oidc/status");
 
 export const SSO_LOGIN_URL = `${V1}/auth/oidc/login`;
+
+// ---- evals ----
+
+export const listEvalDatasets = (): Promise<EvalDatasetRead[]> =>
+  request<EvalDatasetRead[]>("/evals/datasets");
+
+export const createEvalDataset = (name: string, profile: string | null): Promise<EvalDatasetRead> =>
+  request<EvalDatasetRead>("/evals/datasets", {
+    method: "POST",
+    json: profile ? { name, profile } : { name },
+  });
+
+export const getEvalDataset = (id: string): Promise<EvalDatasetDetail> =>
+  request<EvalDatasetDetail>(`/evals/datasets/${id}`);
+
+export const deleteEvalDataset = (id: string): Promise<void> =>
+  request<void>(`/evals/datasets/${id}`, { method: "DELETE" });
+
+export const addEvalCase = (
+  datasetId: string,
+  question: string,
+  expectedKeywords: string[],
+): Promise<EvalCaseRead> =>
+  request<EvalCaseRead>(`/evals/datasets/${datasetId}/cases`, {
+    method: "POST",
+    json: { question, expected_keywords: expectedKeywords },
+  });
+
+export const runEvalDataset = (datasetId: string, profile: string | null): Promise<EvalRunRead> =>
+  request<EvalRunRead>(`/evals/datasets/${datasetId}/run`, {
+    method: "POST",
+    json: profile ? { profile } : {},
+  });
+
+export const listEvalRuns = (datasetId: string): Promise<EvalRunRead[]> =>
+  request<EvalRunRead[]>(`/evals/datasets/${datasetId}/runs`);
+
+// ---- saved connectors ----
+
+export const listConnectors = (): Promise<ConnectorRead[]> =>
+  request<ConnectorRead[]>("/connectors");
+
+export const createConnector = (
+  name: string,
+  type: string,
+  config: Record<string, unknown>,
+): Promise<ConnectorRead> =>
+  request<ConnectorRead>("/connectors", { method: "POST", json: { name, type, config } });
+
+export const syncConnector = (id: string): Promise<FolderSyncReport> =>
+  request<FolderSyncReport>(`/connectors/${id}/sync`, { method: "POST" });
+
+export const deleteConnector = (id: string): Promise<void> =>
+  request<void>(`/connectors/${id}`, { method: "DELETE" });

@@ -51,7 +51,7 @@ def check_groundedness(text: str, marker_map: dict[int, RetrievedChunk]) -> Grou
             if chunk is None:
                 continue
             if marker not in chunk_token_cache:
-                chunk_token_cache[marker] = content_tokens(chunk.content)
+                chunk_token_cache[marker] = content_tokens(chunk.generation_text)
             union |= chunk_token_cache[marker]
         return union
 

@@ -23,6 +23,8 @@ from app.schemas.query import (
     QueryResponse,
 )
 from app.services.access import allowed_document_ids, restrict_requested_ids
+from app.services.conversation import condense_query
+from app.services.generation.factory import get_llm_provider
 from app.services.generation.service import GenerationService
 from app.services.profiles.loader import DEFAULT_PROFILE, get_profile
 from app.services.webhooks import deliver, subscribed
@@ -48,6 +50,12 @@ async def _answer_one(
     allowed = await allowed_document_ids(db, principal)
     effective_ids = restrict_requested_ids(allowed, request.document_ids)
 
+    search_query = None
+    if thread is not None:
+        search_query = await condense_query(db, thread.id, request.query, get_llm_provider())
+        if search_query == request.query:
+            search_query = None
+
     profile = get_profile(request.profile or DEFAULT_PROFILE)
     outcome = await GenerationService(db).answer(
         request.query,
@@ -57,6 +65,7 @@ async def _answer_one(
         thread_id=thread.id if thread else None,
         document_ids=effective_ids,
         top_k=request.top_k,
+        search_query=search_query,
     )
     if thread is not None:
         if thread.title == DEFAULT_TITLE:

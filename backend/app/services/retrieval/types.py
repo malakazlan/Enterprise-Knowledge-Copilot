@@ -21,3 +21,11 @@ class RetrievedChunk:
     sparse_score: float | None = None
     rerank_score: float | None = None
     channels: list[str] = field(default_factory=list)
+    # Parent-child retrieval: the chunk plus its neighbours, used for
+    # generation and groundedness; `content` stays the precise match that
+    # citations and snippets point at.
+    expanded_content: str | None = None
+
+    @property
+    def generation_text(self) -> str:
+        return self.expanded_content or self.content

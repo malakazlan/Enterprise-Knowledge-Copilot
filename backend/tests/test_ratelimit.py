@@ -66,13 +66,43 @@ async def test_query_limited_per_principal_not_globally(
     assert (await client.post("/api/v1/search", headers=second, json=payload)).status_code == 429
 
 
-def test_window_slides() -> None:
+async def test_window_slides() -> None:
     limiter = ratelimit.SlidingWindowLimiter(limit=2, window_seconds=0.05)
-    limiter.check("k")
-    limiter.check("k")
+    await limiter.check("k")
+    await limiter.check("k")
     with pytest.raises(Exception, match="Retry"):
-        limiter.check("k")
-    import time
+        await limiter.check("k")
+    import asyncio
 
-    time.sleep(0.06)
-    limiter.check("k")  # window slid; allowed again
+    await asyncio.sleep(0.06)
+    await limiter.check("k")  # window slid; allowed again
+
+
+async def test_redis_backend_shares_windows() -> None:
+    """Runs against the stack's real Redis; skipped when it isn't up."""
+    import redis.asyncio as aioredis
+
+    try:
+        probe = aioredis.from_url(settings.redis_url)
+        await probe.ping()
+    except Exception:
+        pytest.skip("Redis not reachable")
+    finally:
+        try:
+            await probe.aclose()
+        except Exception:
+            pass
+
+    key = f"test-{__import__('uuid').uuid4().hex}"
+    limiter = ratelimit.RedisSlidingWindowLimiter(limit=2, scope="pytest", window_seconds=1.0)
+    await limiter.check(key)
+    await limiter.check(key)
+    with pytest.raises(Exception, match="Retry"):
+        await limiter.check(key)
+    # Other keys are unaffected; a second limiter instance (another "replica")
+    # sees the same shared window.
+    await limiter.check(f"{key}-other")
+    other_replica = ratelimit.RedisSlidingWindowLimiter(limit=2, scope="pytest", window_seconds=1.0)
+    with pytest.raises(Exception, match="Retry"):
+        await other_replica.check(key)
+    ratelimit.reset_limiters()
