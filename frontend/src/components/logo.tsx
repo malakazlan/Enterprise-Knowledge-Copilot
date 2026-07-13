@@ -16,6 +16,12 @@ const BRAIN_PATHS = [
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
     <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden className="shrink-0">
+      <defs>
+        <linearGradient id="lg-chip" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#1e40af" />
+        </linearGradient>
+      </defs>
       {/* spokes */}
       <g stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round">
         <line x1="24" y1="11" x2="24" y2="5.5" />
@@ -37,7 +43,17 @@ export function LogoMark({ size = 28 }: { size?: number }) {
       <circle cx="39.6" cy="8.4" r="1.9" fill="none" stroke="var(--accent)" strokeWidth="1.6" />
       <circle cx="8.4" cy="39.6" r="1.9" fill="var(--accent)" />
       {/* chip */}
-      <rect x="11.5" y="11.5" width="25" height="25" rx="7" fill="var(--accent)" />
+      <rect x="11.5" y="11.5" width="25" height="25" rx="7" fill="url(#lg-chip)" />
+      <rect
+        x="13"
+        y="13"
+        width="22"
+        height="22"
+        rx="5.8"
+        fill="none"
+        stroke="rgba(255,255,255,0.28)"
+        strokeWidth="0.9"
+      />
       {/* brain */}
       <g
         transform="translate(15.1 15.1) scale(0.74)"
