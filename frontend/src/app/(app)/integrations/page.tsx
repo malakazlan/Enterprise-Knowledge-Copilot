@@ -490,6 +490,16 @@ function AutomationNotes() {
           </code>
         </div>
         <div>
+          <p className="font-semibold text-ink">OpenAI-compatible endpoint — one-line integration for any framework</p>
+          <code className="mt-1 block overflow-x-auto rounded-lg bg-subtle px-3 py-2 font-mono text-[11.5px]">
+            OpenAI(base_url=&quot;https://your-host/v1&quot;, api_key=&quot;ekc_…&quot;) — model = profile name
+          </code>
+          <p className="mt-1">
+            Grounded, cited answers through the standard chat API; trust signals ride in an{" "}
+            <code className="font-mono text-[11px]">ekc</code> extension field. Streaming supported.
+          </p>
+        </div>
+        <div>
           <p className="font-semibold text-ink">Context packs — token-budgeted context for agent prompts</p>
           <code className="mt-1 block overflow-x-auto rounded-lg bg-subtle px-3 py-2 font-mono text-[11.5px]">
             POST /api/v1/context {"{"} &quot;task&quot;: &quot;…&quot;, &quot;max_tokens&quot;: 2000 {"}"}
