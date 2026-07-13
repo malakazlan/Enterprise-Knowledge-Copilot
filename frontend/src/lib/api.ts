@@ -8,6 +8,10 @@ import type {
   CollectionMemberRead,
   CollectionRead,
   DocumentRead,
+  EvalCaseRead,
+  EvalDatasetDetail,
+  EvalDatasetRead,
+  EvalRunRead,
   FolderSyncReport,
   ProfileSummary,
   QueryResponse,
@@ -313,3 +317,39 @@ export const ssoStatus = (): Promise<{ enabled: boolean; provider: string }> =>
   request<{ enabled: boolean; provider: string }>("/auth/oidc/status");
 
 export const SSO_LOGIN_URL = `${V1}/auth/oidc/login`;
+
+// ---- evals ----
+
+export const listEvalDatasets = (): Promise<EvalDatasetRead[]> =>
+  request<EvalDatasetRead[]>("/evals/datasets");
+
+export const createEvalDataset = (name: string, profile: string | null): Promise<EvalDatasetRead> =>
+  request<EvalDatasetRead>("/evals/datasets", {
+    method: "POST",
+    json: profile ? { name, profile } : { name },
+  });
+
+export const getEvalDataset = (id: string): Promise<EvalDatasetDetail> =>
+  request<EvalDatasetDetail>(`/evals/datasets/${id}`);
+
+export const deleteEvalDataset = (id: string): Promise<void> =>
+  request<void>(`/evals/datasets/${id}`, { method: "DELETE" });
+
+export const addEvalCase = (
+  datasetId: string,
+  question: string,
+  expectedKeywords: string[],
+): Promise<EvalCaseRead> =>
+  request<EvalCaseRead>(`/evals/datasets/${datasetId}/cases`, {
+    method: "POST",
+    json: { question, expected_keywords: expectedKeywords },
+  });
+
+export const runEvalDataset = (datasetId: string, profile: string | null): Promise<EvalRunRead> =>
+  request<EvalRunRead>(`/evals/datasets/${datasetId}/run`, {
+    method: "POST",
+    json: profile ? { profile } : {},
+  });
+
+export const listEvalRuns = (datasetId: string): Promise<EvalRunRead[]> =>
+  request<EvalRunRead[]>(`/evals/datasets/${datasetId}/runs`);
