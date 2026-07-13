@@ -375,3 +375,6 @@ export const deleteConnector = (id: string): Promise<void> =>
 
 export const connectorAuthorize = (id: string): Promise<{ authorize_url: string }> =>
   request<{ authorize_url: string }>(`/connectors/${id}/authorize`);
+
+export const submitFeedback = (queryId: string, verdict: "helpful" | "unhelpful"): Promise<void> =>
+  request<void>(`/query/${queryId}/feedback`, { method: "POST", json: { verdict } });
