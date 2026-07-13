@@ -24,6 +24,7 @@ from app.services.generation.factory import get_answer_generator
 from app.services.generation.groundedness import check_groundedness
 from app.services.generation.ports import AnswerGenerator, DraftAnswer, DraftCitation
 from app.services.profiles.schema import RagProfile
+from app.services.retrieval.expand import expand_neighbors
 from app.services.retrieval.service import RetrievalService
 from app.services.retrieval.types import RetrievedChunk
 
@@ -85,6 +86,8 @@ class GenerationService:
             effective, profile, top_k=top_k, document_ids=document_ids
         )
         chunks = search.results
+        if chunks and profile.generation.neighbor_context:
+            await expand_neighbors(self.db, chunks)
 
         if not chunks:
             outcome = self._refusal(REASON_NO_DOCUMENTS, model=self.generator.name, sources=0)

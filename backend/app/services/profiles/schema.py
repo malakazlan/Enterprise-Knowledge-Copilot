@@ -65,6 +65,9 @@ class GenerationConfig(_StrictModel):
     # below refuse -> the system declines to answer.
     confidence_threshold_review: float = Field(default=0.5, ge=0.0, le=1.0)
     confidence_threshold_refuse: float = Field(default=0.25, ge=0.0, le=1.0)
+    # Parent-child retrieval: hand generation the matched chunk plus its
+    # neighbours (citations still point at the precise match).
+    neighbor_context: bool = True
     # Optional domain-specific system prompt override.
     system_prompt: str | None = None
 
