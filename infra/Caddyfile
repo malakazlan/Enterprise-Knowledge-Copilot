@@ -1,0 +1,14 @@
+# Automatic HTTPS in front of the API (which also serves the web app).
+{$SITE_ADDRESS} {
+	encode gzip
+
+	# SSE streaming must not be buffered.
+	reverse_proxy api:8000 {
+		flush_interval -1
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

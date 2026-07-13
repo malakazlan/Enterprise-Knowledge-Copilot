@@ -1,0 +1,55 @@
+# Production overlay: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Differences from dev:
+# - Caddy terminates HTTPS (automatic certificates) and is the ONLY published
+#   service; Postgres/Redis/Qdrant/API are reachable solely on the internal
+#   network.
+# - restart: always everywhere; named volumes for everything stateful.
+# - The API image bundles the built frontend, OCR, and Office parsing.
+
+services:
+  postgres:
+    restart: always
+    ports: !override []
+
+  redis:
+    restart: always
+    ports: !override []
+
+  qdrant:
+    restart: always
+    ports: !override []
+
+  api:
+    restart: always
+    ports: !override []
+    env_file:
+      - path: /opt/ekc/.env
+        required: true
+    environment:
+      ENVIRONMENT: production
+      RATE_LIMIT_BACKEND: redis
+    volumes:
+      - ekc_storage:/app/storage
+      - ekc_models:/app/models
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS, e.g. demo.example.com or 1.2.3.4.sslip.io}
+    depends_on:
+      - api
+
+volumes:
+  ekc_storage:
+  ekc_models:
+  caddy_data:
+  caddy_config:
