@@ -1,38 +1,47 @@
 "use client";
 
 /** Ask — Intelligence Reports: streamed grounded answers with citations,
- *  confidence sub-scores, feedback, and a persistent sources rail. */
+ *  confidence sub-scores, feedback, and a persistent sources rail. Thread
+ *  history and "New Analysis" live in the app shell and hand actions over
+ *  via readAskAction(). */
 
 import Link from "next/link";
 import {
   FileSearch,
+  Mic,
   Paperclip,
-  Plus,
   Share2,
   ShieldCheck,
   ThumbsDown,
   ThumbsUp,
-  Trash2,
   X,
 } from "lucide-react";
-import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 
 import {
   ApiError,
   createThread,
-  deleteThread,
   getThread,
   listProfiles,
-  listThreads,
   streamQuery,
   submitFeedback,
   uploadDocument,
 } from "@/lib/api";
-import type { QueryCitation, QueryResponse, ThreadRead } from "@/lib/types";
+import type { QueryCitation, QueryResponse } from "@/lib/types";
+import { readAskAction } from "@/components/shell";
 import { Button, Callout, Cite, Spinner } from "@/components/ui";
 
 interface Exchange {
   question: string;
+  at: string;
   response: QueryResponse | null;
   error: string | null;
   streaming: string;
@@ -54,6 +63,13 @@ function confidenceTone(value: number): string {
   if (value >= 0.8) return "bg-ok-subtle text-ok";
   if (value >= 0.5) return "bg-warn-subtle text-warn";
   return "bg-danger-subtle text-danger";
+}
+
+function timeLabel(iso: string): string {
+  const date = new Date(iso);
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (date.toDateString() === new Date().toDateString()) return `Today, ${time}`;
+  return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${time}`;
 }
 
 function SubScores({ breakdown }: { breakdown: Record<string, number> }) {
@@ -170,7 +186,7 @@ function SourcesRail({
   onClose: () => void;
 }) {
   return (
-    <aside className="sticky top-6 w-[290px] shrink-0 max-lg:hidden">
+    <aside className="sticky top-[76px] w-[290px] shrink-0 max-lg:hidden">
       <div className="rounded-xl border border-line bg-canvas shadow-sm">
         <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
           <FileSearch size={13} className="text-ink-3" />
@@ -224,11 +240,27 @@ function SourcesRail({
   );
 }
 
-function relTime(iso: string): string {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (mins < 60) return `${mins}m`;
-  if (mins < 1440) return `${Math.round(mins / 60)}h`;
-  return `${Math.round(mins / 1440)}d`;
+// ---- dictation (browser Web Speech API; button renders only if supported) ----
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  onresult: ((event: SpeechResultEventLike) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+interface SpeechResultEventLike {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+}
+
+function speechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
 export default function AskPage() {
@@ -236,47 +268,38 @@ export default function AskPage() {
   const [question, setQuestion] = useState("");
   const [profiles, setProfiles] = useState<string[]>([]);
   const [profile, setProfile] = useState<string | null>(null);
-  const [threads, setThreads] = useState<ThreadRead[]>([]);
   const [activeThread, setActiveThread] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
   const [uploadNote, setUploadNote] = useState<string | null>(null);
+  const [micOn, setMicOn] = useState(false);
+  const micSupported = useSyncExternalStore(
+    () => () => undefined,
+    () => speechRecognitionCtor() !== null,
+    () => false,
+  );
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const refreshThreads = useCallback(() => {
-    listThreads()
-      .then(setThreads)
-      .catch(() => setThreads([]));
-  }, []);
+  const recRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
     listProfiles()
       .then((list) => setProfiles(list.map((p) => p.name)))
       .catch(() => setProfiles([]));
-    refreshThreads();
-  }, [refreshThreads]);
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [exchanges]);
 
-  const latest = [...exchanges].reverse().find((e) => e.response?.answered);
-  const railCitations = latest?.response?.citations ?? [];
-  const flagged = [...exchanges].reverse().find((e) => e.response)?.response?.needs_review;
-
-  function newAnalysis() {
-    setActiveThread(null);
-    setExchanges([]);
-  }
-
-  async function openThread(id: string) {
+  const openThread = useCallback(async (id: string) => {
     setActiveThread(id);
     try {
       const detail = await getThread(id);
       setExchanges(
         detail.messages.map((m) => ({
           question: m.query,
+          at: m.created_at,
           streaming: "",
           error: null,
           response: {
@@ -301,13 +324,51 @@ export default function AskPage() {
     } catch {
       setExchanges([]);
     }
-  }
+  }, []);
 
-  async function removeThread(id: string) {
-    if (!window.confirm("Delete this conversation? Audit records are kept.")) return;
-    await deleteThread(id).catch(() => undefined);
-    if (activeThread === id) newAnalysis();
-    refreshThreads();
+  // The shell's "+ New Analysis" button and history menu hand actions over here.
+  useEffect(() => {
+    const handle = () => {
+      const action = readAskAction();
+      if (action === "new") {
+        setActiveThread(null);
+        setExchanges([]);
+      } else if (action?.startsWith("thread:")) {
+        void openThread(action.slice(7));
+      }
+    };
+    handle();
+    window.addEventListener("ekc-ask-action", handle);
+    return () => window.removeEventListener("ekc-ask-action", handle);
+  }, [openThread]);
+
+  const latest = [...exchanges].reverse().find((e) => e.response?.answered);
+  const railCitations = latest?.response?.citations ?? [];
+  const flagged = [...exchanges].reverse().find((e) => e.response)?.response?.needs_review;
+
+  function toggleMic() {
+    if (micOn) {
+      recRef.current?.stop();
+      return;
+    }
+    const Ctor = speechRecognitionCtor();
+    if (!Ctor) return;
+    const rec = new Ctor();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = false;
+    rec.onresult = (event) => {
+      const transcript = Array.from(
+        { length: event.results.length },
+        (_, i) => event.results[i]?.[0]?.transcript ?? "",
+      )
+        .join(" ")
+        .trim();
+      if (transcript) setQuestion((q) => (q ? `${q} ${transcript}` : transcript));
+    };
+    rec.onend = () => setMicOn(false);
+    recRef.current = rec;
+    setMicOn(true);
+    rec.start();
   }
 
   async function attach(files: FileList | null) {
@@ -328,7 +389,10 @@ export default function AskPage() {
     if (!q || busy) return;
     setQuestion("");
     setBusy(true);
-    setExchanges((prev) => [...prev, { question: q, response: null, error: null, streaming: "" }]);
+    setExchanges((prev) => [
+      ...prev,
+      { question: q, at: new Date().toISOString(), response: null, error: null, streaming: "" },
+    ]);
     try {
       let threadId = activeThread;
       if (!threadId) {
@@ -344,7 +408,6 @@ export default function AskPage() {
         prev.map((e, i) => (i === prev.length - 1 ? { ...e, response, streaming: "" } : e)),
       );
       setRailOpen(true);
-      refreshThreads();
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Could not reach the server.";
       setExchanges((prev) =>
@@ -356,51 +419,21 @@ export default function AskPage() {
   }
 
   return (
-    <div className="flex gap-6">
-      {/* ——— Analyses (threads) ——— */}
-      <aside className="w-[210px] shrink-0 max-md:hidden">
-        <Button variant="primary" className="mb-3 w-full justify-center" onClick={newAnalysis}>
-          <Plus size={14} /> New Analysis
-        </Button>
-        <div className="flex flex-col gap-0.5">
-          {threads.map((t) => (
-            <div
-              key={t.id}
-              className={`group flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors ${
-                activeThread === t.id ? "bg-subtle font-medium" : "text-ink-2 hover:bg-subtle"
-              }`}
-              onClick={() => void openThread(t.id)}
-            >
-              <span className="min-w-0 flex-1 truncate">{t.title}</span>
-              <span className="shrink-0 text-[10.5px] text-ink-3">{relTime(t.updated_at)}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void removeThread(t.id);
-                }}
-                className="hidden shrink-0 text-ink-3 group-hover:block hover:text-danger"
-                title="Delete conversation"
-              >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
-          {threads.length === 0 && (
-            <p className="px-2.5 py-1.5 text-[12px] text-ink-3">No analyses yet.</p>
-          )}
-        </div>
-      </aside>
-
-      {/* ——— Conversation ——— */}
-      <div className="mx-auto min-w-0 max-w-[760px] flex-1">
+    <div className="flex items-start gap-7">
+      {/* ——— Conversation, centered ——— */}
+      <div className="mx-auto w-full max-w-[720px] min-w-0">
         {flagged && (
-          <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-warn/30 bg-warn-subtle px-4 py-2.5 text-[12.5px] text-warn">
-            <ShieldCheck size={14} className="shrink-0" />
-            <span className="text-ink">
-              This response is below the confidence threshold and is <b>queued for Human Review</b>.
+          <div className="mb-5 flex items-center gap-2.5 rounded-lg border border-warn/30 bg-warn-subtle px-4 py-2.5 text-[12.5px]">
+            <ShieldCheck size={14} className="shrink-0 text-warn" />
+            <span>
+              This response is below the confidence threshold and is{" "}
+              <b>queued for Human Review</b>.
             </span>
-            <Link href="/review" className="ml-auto shrink-0 font-semibold text-warn hover:underline">
-              View queue
+            <Link
+              href="/review"
+              className="ml-auto shrink-0 font-semibold text-warn hover:underline"
+            >
+              View details
             </Link>
           </div>
         )}
@@ -415,39 +448,50 @@ export default function AskPage() {
           </div>
         )}
 
-        {exchanges.map((exchange, i) => (
-          <div key={i} className="mb-6">
-            <div className="mb-4 flex justify-end">
-              <p className="max-w-[75%] rounded-[14px_14px_4px_14px] bg-subtle px-4 py-2.5 text-sm">
-                {exchange.question}
-              </p>
+        {exchanges.map((exchange, i) => {
+          const previous = exchanges[i - 1];
+          const showTime =
+            !previous ||
+            new Date(exchange.at).getTime() - new Date(previous.at).getTime() > 5 * 60_000;
+          return (
+            <div key={i} className="mb-6">
+              {showTime && (
+                <p className="mb-4 text-center font-mono text-[10.5px] text-ink-3">
+                  {timeLabel(exchange.at)}
+                </p>
+              )}
+              <div className="mb-4 flex justify-end">
+                <p className="max-w-[75%] rounded-[14px_14px_4px_14px] bg-subtle px-4 py-2.5 text-sm">
+                  {exchange.question}
+                </p>
+              </div>
+              {exchange.streaming && !exchange.response && (
+                <p className="max-w-[680px] text-[14.5px] leading-[1.75]">
+                  <AnswerText text={exchange.streaming} />
+                  <span className="ml-0.5 inline-block h-[15px] w-[7px] animate-pulse bg-accent align-middle" />
+                </p>
+              )}
+              {exchange.response && (
+                <>
+                  <IntelligenceReport response={exchange.response} />
+                  <p className="font-mono text-[10.5px] text-ink-3">Knowledge Copilot · just now</p>
+                </>
+              )}
+              {exchange.error && (
+                <div className="max-w-[640px]">
+                  <Callout tone="warn" icon="⚠">
+                    {exchange.error}
+                  </Callout>
+                </div>
+              )}
+              {!exchange.response && !exchange.error && !exchange.streaming && (
+                <div className="flex items-center gap-2.5 text-sm text-ink-3">
+                  <Spinner /> Searching the corpus…
+                </div>
+              )}
             </div>
-            {exchange.streaming && !exchange.response && (
-              <p className="max-w-[680px] text-[14.5px] leading-[1.75]">
-                <AnswerText text={exchange.streaming} />
-                <span className="ml-0.5 inline-block h-[15px] w-[7px] animate-pulse bg-accent align-middle" />
-              </p>
-            )}
-            {exchange.response && (
-              <>
-                <IntelligenceReport response={exchange.response} />
-                <p className="font-mono text-[10.5px] text-ink-3">Knowledge Copilot · just now</p>
-              </>
-            )}
-            {exchange.error && (
-              <div className="max-w-[640px]">
-                <Callout tone="warn" icon="⚠">
-                  {exchange.error}
-                </Callout>
-              </div>
-            )}
-            {!exchange.response && !exchange.error && !exchange.streaming && (
-              <div className="flex items-center gap-2.5 text-sm text-ink-3">
-                <Spinner /> Searching the corpus…
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
         <div ref={endRef} />
 
         {/* ——— Composer ——— */}
@@ -483,11 +527,11 @@ export default function AskPage() {
               ))}
             </div>
           )}
-          <div className="flex items-center gap-2 py-2.5 pr-2.5 pl-4">
+          <div className="flex items-center gap-1.5 py-2.5 pr-2.5 pl-4">
             <input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask a question about your knowledge base…"
+              placeholder={micOn ? "Listening…" : "Ask a question about your knowledge base…"}
               className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-ink-3 focus:outline-none"
             />
             <button
@@ -498,6 +542,20 @@ export default function AskPage() {
             >
               <Paperclip size={15} />
             </button>
+            {micSupported && (
+              <button
+                type="button"
+                onClick={toggleMic}
+                className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${
+                  micOn
+                    ? "animate-pulse bg-danger-subtle text-danger"
+                    : "text-ink-3 hover:bg-subtle hover:text-ink"
+                }`}
+                title={micOn ? "Stop dictation" : "Dictate your question"}
+              >
+                <Mic size={15} />
+              </button>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -509,7 +567,12 @@ export default function AskPage() {
                 e.target.value = "";
               }}
             />
-            <Button variant="primary" type="submit" disabled={busy || !question.trim()}>
+            <Button
+              variant="primary"
+              type="submit"
+              className="ml-1"
+              disabled={busy || !question.trim()}
+            >
               Generate Intelligence
             </Button>
           </div>

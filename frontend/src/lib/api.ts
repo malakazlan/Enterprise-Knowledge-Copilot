@@ -17,6 +17,7 @@ import type {
   ProfileSummary,
   QueryResponse,
   ReviewItem,
+  SearchResponse,
   ThreadDetail,
   ThreadRead,
   TokenPair,
@@ -170,6 +171,13 @@ export const runQuery = (query: string, profile: string | null): Promise<QueryRe
 
 export const listProfiles = (): Promise<ProfileSummary[]> =>
   request<ProfileSummary[]>("/profiles");
+
+// ---- search & team ----
+
+export const searchChunks = (query: string, topK = 8): Promise<SearchResponse> =>
+  request<SearchResponse>("/search", { method: "POST", json: { query, top_k: topK } });
+
+export const listUsers = (): Promise<UserRead[]> => request<UserRead[]>("/users?limit=200");
 
 // ---- reviews & admin ----
 
