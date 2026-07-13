@@ -118,8 +118,8 @@ async def test_full_connect_and_sync_flow(
 
     # 1. Authorize: redirect to Google's consent screen with signed state.
     auth = await client.get(f"{CONNECTORS}/{connector['id']}/authorize", headers=admin)
-    assert auth.status_code == 307
-    location = auth.headers["location"]
+    assert auth.status_code == 200
+    location = auth.json()["authorize_url"]
     assert location.startswith("https://accounts.google.com/o/oauth2/v2/auth?")
     state = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)["state"][0]
 

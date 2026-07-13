@@ -6,12 +6,11 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import {
   ApiError,
-  connectorAuthorizeUrl,
+  connectorAuthorize,
   createConnector,
   createWebhook,
   deleteConnector,
   deleteWebhook,
-  getAccessToken,
   listCollections,
   listConnectors,
   listWebhooks,
@@ -162,14 +161,8 @@ function Connectors() {
     setError(null);
     try {
       const connector = await createConnector(name.trim(), "gdrive", {});
-      const token = getAccessToken();
-      const res = await fetch(connectorAuthorizeUrl(connector.id), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        redirect: "manual",
-      });
-      const target = res.headers.get("location");
-      if (target) window.location.href = target;
-      else setError("Google Drive is not configured on the server (GDRIVE_CLIENT_ID…).");
+      const { authorize_url } = await connectorAuthorize(connector.id);
+      window.location.href = authorize_url;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not start the Google connect flow.");
     }

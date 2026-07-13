@@ -322,17 +322,19 @@ async def _run_gdrive_sync(
 
 @router.get(
     "/{connector_id}/authorize",
-    summary="Start the provider consent flow for an OAuth connector",
+    summary="Provider consent URL for an OAuth connector",
 )
 async def authorize_connector(
     db: DbSession, admin: Admin, connector_id: uuid.UUID
-) -> RedirectResponse:
+) -> dict[str, str]:
+    # Returned as JSON (not a redirect): browsers hide Location headers from
+    # fetch() on manual redirects, so the SPA navigates itself.
     connector = await db.get(Connector, connector_id)
     if connector is None:
         raise NotFoundError("Connector not found.")
     if connector.type != "gdrive":
         raise ValidationAppError("Only Google Drive connectors use the consent flow.")
-    return RedirectResponse(gdrive.authorization_url(connector.id), status_code=307)
+    return {"authorize_url": gdrive.authorization_url(connector.id)}
 
 
 @public_router.get("/gdrive/callback", summary="Google consent redirect target")
