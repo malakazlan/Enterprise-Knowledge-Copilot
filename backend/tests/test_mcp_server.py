@@ -134,3 +134,15 @@ async def test_new_tools_registered() -> None:
     tools = await mcp_server.mcp.list_tools()
     names = {tool.name for tool in tools}
     assert {"get_context", "write_knowledge"} <= names
+
+
+async def test_memory_tools_roundtrip(mcp_env: None) -> None:
+    """Agent memory over MCP: remember -> recall, scoped to the key."""
+    stored = await mcp_server.remember(
+        "Customer Globex escalations go to the platinum queue.", kind="fact", ttl_days=30
+    )
+    assert stored["scope"].startswith("key:")
+    assert stored["expires_at"] is not None
+
+    matches = await mcp_server.recall("Where do Globex escalations go?")
+    assert matches and "platinum queue" in matches[0]["content"]

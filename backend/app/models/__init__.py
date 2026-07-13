@@ -18,6 +18,7 @@ from app.models.document import (
     JobStatus,
 )
 from app.models.evals import EvalCase, EvalDataset, EvalRun
+from app.models.memory import MEMORY_KINDS, AgentMemory
 from app.models.querylog import QueryLog, ReviewStatus
 from app.models.thread import ChatThread
 from app.models.user import User, UserRole
@@ -25,7 +26,9 @@ from app.models.webhook import WEBHOOK_EVENTS, Webhook
 
 __all__ = [
     "CONNECTOR_TYPES",
+    "MEMORY_KINDS",
     "WEBHOOK_EVENTS",
+    "AgentMemory",
     "ApiKey",
     "ChatThread",
     "Collection",

@@ -304,6 +304,37 @@ async def write_knowledge(
     }
 
 
+@mcp.tool()
+async def remember(
+    content: str,
+    kind: str = "fact",
+    ttl_days: int | None = None,
+    source: str | None = None,
+) -> dict[str, Any]:
+    """Store a private memory in YOUR scope (facts, episodes, preferences).
+
+    Memories are namespaced to your API key — other agents cannot recall
+    them. Use `ttl_days` for anything that goes stale.
+    """
+    payload: dict[str, Any] = {"content": content, "kind": kind}
+    if ttl_days:
+        payload["ttl_days"] = ttl_days
+    if source:
+        payload["source"] = source
+    data = await _call("POST", "/memory", payload)
+    return {"memory_id": data["id"], "scope": data["scope"], "expires_at": data["expires_at"]}
+
+
+@mcp.tool()
+async def recall(query: str, limit: int = 5) -> list[dict[str, Any]]:
+    """Semantic recall over YOUR private memories (most relevant first)."""
+    data = await _call("POST", "/memory/recall", {"query": query, "limit": max(1, min(limit, 25))})
+    return [
+        {"content": m["content"], "kind": m["kind"], "score": m["score"], "id": m["id"]}
+        for m in data
+    ]
+
+
 def main() -> None:
     """Console-script entry point (stdio transport)."""
     mcp.run()
