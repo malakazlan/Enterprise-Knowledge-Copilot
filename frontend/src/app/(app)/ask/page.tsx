@@ -123,7 +123,7 @@ function IntelligenceReport({ response }: { response: QueryResponse }) {
   }
 
   return (
-    <div className="mb-2 rounded-xl border border-line bg-canvas shadow-sm">
+    <div className="animate-rise mb-2 rounded-xl border border-line bg-canvas shadow-md">
       <div className="flex flex-wrap items-center gap-2.5 border-b border-line-soft border-b-line px-5 py-3">
         <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-accent-subtle text-accent">
           <ShieldCheck size={14} />
@@ -254,6 +254,12 @@ interface SpeechRecognitionLike {
 interface SpeechResultEventLike {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
 }
+
+const STARTERS = [
+  "Summarize the key points of our most recent document",
+  "What deadlines or obligations should we be aware of?",
+  "Where do our documents contradict each other?",
+];
 
 function speechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
   const w = window as unknown as {
@@ -439,12 +445,26 @@ export default function AskPage() {
         )}
 
         {exchanges.length === 0 && (
-          <div className="pt-20 pb-14 text-center">
-            <h1 className="text-[26px] font-bold tracking-[-0.02em]">Ask your documents</h1>
-            <p className="mt-2 text-sm text-ink-2">
+          <div className="animate-rise pt-16 pb-12 text-center">
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-accent-subtle text-accent">
+              <ShieldCheck size={20} />
+            </span>
+            <h1 className="mt-4 text-[26px] font-bold tracking-[-0.02em]">Ask your documents</h1>
+            <p className="mx-auto mt-2 max-w-[440px] text-sm text-ink-2">
               Every report cites its sources and carries a confidence score. When the evidence
               isn&rsquo;t there, it declines.
             </p>
+            <div className="mt-7 flex flex-wrap justify-center gap-2">
+              {STARTERS.map((starter) => (
+                <button
+                  key={starter}
+                  onClick={() => setQuestion(starter)}
+                  className="rounded-full border border-line bg-canvas px-3.5 py-1.5 text-[12.5px] text-ink-2 shadow-sm transition-all hover:border-accent-border hover:text-ink hover:shadow-md"
+                >
+                  {starter}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -460,8 +480,8 @@ export default function AskPage() {
                   {timeLabel(exchange.at)}
                 </p>
               )}
-              <div className="mb-4 flex justify-end">
-                <p className="max-w-[75%] rounded-[14px_14px_4px_14px] bg-subtle px-4 py-2.5 text-sm">
+              <div className="animate-rise mb-4 flex justify-end">
+                <p className="max-w-[75%] rounded-[14px_14px_4px_14px] border border-line bg-canvas px-4 py-2.5 text-sm shadow-sm">
                   {exchange.question}
                 </p>
               </div>
@@ -527,7 +547,7 @@ export default function AskPage() {
               ))}
             </div>
           )}
-          <div className="flex items-center gap-1.5 py-2.5 pr-2.5 pl-4">
+          <div className="flex items-center gap-1.5 py-3 pr-3 pl-4">
             <input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}

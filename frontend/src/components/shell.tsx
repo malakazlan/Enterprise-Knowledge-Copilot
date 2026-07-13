@@ -18,16 +18,23 @@ import {
   LifeBuoy,
   LogOut,
   MessagesSquare,
+  Moon,
   Plus,
   Search,
-  Settings,
-  SunMoon,
+  Sun,
   Trash2,
   UserPlus,
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
 import {
   clearTokens,
@@ -60,6 +67,12 @@ export function applyStoredTheme(): void {
   if (stored === "dark" || stored === "light") {
     document.documentElement.dataset.theme = stored;
   }
+  window.dispatchEvent(new Event("ekc-theme"));
+}
+
+function subscribeTheme(onChange: () => void): () => void {
+  window.addEventListener("ekc-theme", onChange);
+  return () => window.removeEventListener("ekc-theme", onChange);
 }
 
 /** Hand an action ("new" | "thread:<id>") to the Ask page, navigating if needed. */
@@ -278,9 +291,13 @@ export default function Shell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [pendingReviews, setPendingReviews] = useState<number | null>(null);
+  const dark = useSyncExternalStore(
+    subscribeTheme,
+    () => document.documentElement.dataset.theme === "dark",
+    () => false,
+  );
 
   useEffect(() => {
     applyStoredTheme();
@@ -319,6 +336,7 @@ export default function Shell({ children }: { children: ReactNode }) {
     const next = root.dataset.theme === "dark" ? "light" : "dark";
     root.dataset.theme = next;
     localStorage.setItem(THEME_KEY, next);
+    window.dispatchEvent(new Event("ekc-theme"));
   }
 
   function signOut() {
@@ -345,21 +363,23 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       {/* ——— Sidebar ——— */}
       <aside className="sticky top-0 flex h-screen w-[228px] shrink-0 flex-col border-r border-line bg-sidebar">
-        <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
-          <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-[13px] font-bold text-white">
+        <div className="flex items-center gap-2.5 px-4 pt-5 pb-4">
+          <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-lg bg-accent text-[13px] font-bold text-white shadow-sm">
             K
           </span>
-          <span className="truncate text-[13.5px] font-semibold">Knowledge Copilot</span>
+          <span className="truncate text-[13.5px] font-semibold tracking-[-0.01em]">
+            Knowledge Copilot
+          </span>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2.5 pt-2">
+        <nav className="flex-1 overflow-y-auto px-3 pt-1">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13.5px] transition-colors ${
+                className={`mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] transition-colors ${
                   active
                     ? "bg-accent-subtle font-semibold text-accent"
                     : "font-medium text-ink-2 hover:bg-hover hover:text-ink"
@@ -372,7 +392,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="px-2.5 pb-3">
+        <div className="px-3 pb-4">
           <Button
             variant="primary"
             className="mb-2 w-full justify-center"
@@ -380,51 +400,27 @@ export default function Shell({ children }: { children: ReactNode }) {
           >
             <Plus size={14} /> New Analysis
           </Button>
-          <div className="relative border-t border-line pt-2">
-            <button
-              onClick={() => setSettingsOpen((v) => !v)}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium text-ink-2 transition-colors hover:bg-hover hover:text-ink"
-            >
-              <Settings size={15} className="text-ink-3" /> Settings
-            </button>
-            {settingsOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                <div className="absolute bottom-[calc(100%+6px)] left-0 z-50 w-[220px] rounded-xl border border-line bg-canvas p-1.5 shadow-lg">
-                  <button
-                    onClick={() => {
-                      toggleTheme();
-                      setSettingsOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-subtle"
-                  >
-                    <SunMoon size={14} className="text-ink-3" /> Toggle light / dark theme
-                  </button>
-                </div>
-              </>
-            )}
-            <a
-              href="/docs"
-              target="_blank"
-              rel="noreferrer"
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium text-ink-2 transition-colors hover:bg-hover hover:text-ink"
-            >
-              <LifeBuoy size={15} className="text-ink-3" /> Support
-            </a>
-          </div>
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-ink-2 transition-colors hover:bg-hover hover:text-ink"
+          >
+            <LifeBuoy size={15} className="text-ink-3" /> Support
+          </a>
         </div>
       </aside>
 
       {/* ——— Top bar + content ——— */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-[52px] items-center gap-3 border-b border-line bg-canvas px-5">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2.5 border-b border-line bg-page/80 px-5 backdrop-blur-md">
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex w-full max-w-[420px] items-center gap-2 rounded-lg border border-line bg-subtle px-3 py-1.5 text-[12.5px] text-ink-3 transition-colors hover:border-line-strong"
+            className="flex w-full max-w-[420px] items-center gap-2 rounded-[10px] border border-line bg-canvas px-3 py-[7px] text-[12.5px] text-ink-3 shadow-sm transition-all hover:border-line-strong hover:shadow-md"
           >
             <Search size={13} />
             Search knowledge base…
-            <kbd className="ml-auto rounded border border-line bg-canvas px-1.5 font-mono text-[10px]">
+            <kbd className="ml-auto rounded-md border border-line bg-subtle px-1.5 font-mono text-[10px]">
               ⌘K
             </kbd>
           </button>
@@ -474,6 +470,14 @@ export default function Shell({ children }: { children: ReactNode }) {
             {historyOpen && <HistoryMenu onClose={() => setHistoryOpen(false)} />}
           </div>
 
+          <button
+            onClick={toggleTheme}
+            title={dark ? "Switch to light theme" : "Switch to dark theme"}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
+          >
+            {dark ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+
           {user?.role === "admin" && (
             <Button variant="primary" className="shrink-0" onClick={() => setInviteOpen(true)}>
               <UserPlus size={14} /> Invite Team
@@ -498,12 +502,6 @@ export default function Shell({ children }: { children: ReactNode }) {
                   <p className="mt-1 text-[11px] text-ink-3 capitalize">Role: {user?.role}</p>
                 </div>
                 <div className="p-1.5">
-                  <button
-                    onClick={toggleTheme}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-subtle"
-                  >
-                    <SunMoon size={14} className="text-ink-3" /> Toggle theme
-                  </button>
                   <button
                     onClick={signOut}
                     className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-subtle"
