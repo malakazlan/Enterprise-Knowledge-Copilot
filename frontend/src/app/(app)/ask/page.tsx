@@ -7,7 +7,10 @@
 
 import Link from "next/link";
 import {
+  ArrowUp,
+  ChevronDown,
   FileSearch,
+  Layers,
   Mic,
   Paperclip,
   Share2,
@@ -37,7 +40,7 @@ import {
 } from "@/lib/api";
 import type { QueryCitation, QueryResponse } from "@/lib/types";
 import { readAskAction } from "@/components/shell";
-import { Button, Callout, Cite, Spinner } from "@/components/ui";
+import { Callout, Cite, Spinner } from "@/components/ui";
 
 interface Exchange {
   question: string;
@@ -221,7 +224,7 @@ function SourcesRail({
                   Page {citation.page_number}
                 </span>
               )}
-              <span className="mt-1 line-clamp-3 block text-[11.5px] leading-normal text-ink-2 italic">
+              <span className="mt-1 line-clamp-3 text-[11.5px] leading-normal text-ink-2 italic">
                 “{citation.snippet}”
               </span>
             </Link>
@@ -284,9 +287,20 @@ export default function AskPage() {
     () => speechRecognitionCtor() !== null,
     () => false,
   );
+  const [profileOpen, setProfileOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
+
+  // Grow the composer with its content (capped by max-h on the textarea).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 176)}px`;
+  }, [question]);
 
   useEffect(() => {
     listProfiles()
@@ -458,7 +472,10 @@ export default function AskPage() {
               {STARTERS.map((starter) => (
                 <button
                   key={starter}
-                  onClick={() => setQuestion(starter)}
+                  onClick={() => {
+                    setQuestion(starter);
+                    inputRef.current?.focus();
+                  }}
                   className="rounded-full border border-line bg-canvas px-3.5 py-1.5 text-[12.5px] text-ink-2 shadow-sm transition-all hover:border-accent-border hover:text-ink hover:shadow-md"
                 >
                   {starter}
@@ -516,66 +533,91 @@ export default function AskPage() {
 
         {/* ——— Composer ——— */}
         <form
+          ref={formRef}
           onSubmit={submit}
-          className="sticky bottom-4 mt-8 rounded-[14px] border border-line-strong bg-canvas shadow-lg"
+          className="sticky bottom-4 mt-8 rounded-2xl border border-line-strong bg-canvas shadow-lg"
         >
-          {profiles.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-4 py-2">
-              <span className="mr-1 font-mono text-[10px] tracking-[0.12em] text-ink-3 uppercase">
-                Target profile
-              </span>
-              <button
-                type="button"
-                onClick={() => setProfile(null)}
-                className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-medium transition-colors ${
-                  profile === null ? "bg-accent text-white" : "bg-subtle text-ink-2 hover:text-ink"
-                }`}
-              >
-                default
-              </button>
-              {profiles.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setProfile(name)}
-                  className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-medium transition-colors ${
-                    profile === name ? "bg-accent text-white" : "bg-subtle text-ink-2 hover:text-ink"
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 py-3 pr-3 pl-4">
-            <input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder={micOn ? "Listening…" : "Ask a question about your knowledge base…"}
-              className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-ink-3 focus:outline-none"
-            />
+          <textarea
+            ref={inputRef}
+            rows={2}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                formRef.current?.requestSubmit();
+              }
+            }}
+            placeholder={micOn ? "Listening…" : "Ask anything about your knowledge base…"}
+            className="block max-h-44 w-full resize-none bg-transparent px-5 pt-4 text-[15px] leading-relaxed placeholder:text-ink-3 focus:outline-none"
+          />
+          <div className="flex items-center gap-1 px-3 pt-1 pb-3">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="grid h-8 w-8 place-items-center rounded-lg text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
+              className="grid h-9 w-9 place-items-center rounded-full text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
               title="Add a document to the library"
             >
-              <Paperclip size={15} />
+              <Paperclip size={16} />
             </button>
             {micSupported && (
               <button
                 type="button"
                 onClick={toggleMic}
-                className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${
+                className={`grid h-9 w-9 place-items-center rounded-full transition-colors ${
                   micOn
                     ? "animate-pulse bg-danger-subtle text-danger"
                     : "text-ink-3 hover:bg-subtle hover:text-ink"
                 }`}
                 title={micOn ? "Stop dictation" : "Dictate your question"}
               >
-                <Mic size={15} />
+                <Mic size={16} />
               </button>
             )}
+            {profiles.length > 0 && (
+              <div className="relative ml-1">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((v) => !v)}
+                  className="flex items-center gap-1.5 rounded-full border border-line bg-subtle px-3 py-1.5 text-[12px] font-medium text-ink-2 transition-colors hover:border-line-strong hover:text-ink"
+                  title="Choose a retrieval profile"
+                >
+                  <Layers size={12} className="text-ink-3" />
+                  {profile ?? "default"}
+                  <ChevronDown size={12} className="text-ink-3" />
+                </button>
+                {profileOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                    <div className="absolute bottom-[calc(100%+8px)] left-0 z-50 w-[200px] rounded-xl border border-line bg-canvas p-1.5 shadow-lg">
+                      <p className="px-2.5 pt-1.5 pb-1 font-mono text-[10px] tracking-[0.12em] text-ink-3 uppercase">
+                        Target profile
+                      </p>
+                      {[null, ...profiles].map((name) => (
+                        <button
+                          key={name ?? "default"}
+                          type="button"
+                          onClick={() => {
+                            setProfile(name);
+                            setProfileOpen(false);
+                          }}
+                          className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                            profile === name
+                              ? "bg-accent-subtle font-semibold text-accent"
+                              : "hover:bg-subtle"
+                          }`}
+                        >
+                          {name ?? "default"}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            <span className="mx-2 hidden min-w-0 flex-1 truncate text-center font-mono text-[10px] text-ink-3 sm:block">
+              {uploadNote ?? "Answers are grounded in your documents and always cite their sources."}
+            </span>
             <input
               ref={fileRef}
               type="file"
@@ -587,18 +629,15 @@ export default function AskPage() {
                 e.target.value = "";
               }}
             />
-            <Button
-              variant="primary"
+            <button
               type="submit"
-              className="ml-1"
               disabled={busy || !question.trim()}
+              title="Ask (Enter)"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-white shadow-sm transition-all hover:bg-accent-hover active:translate-y-px disabled:opacity-40"
             >
-              Generate Intelligence
-            </Button>
+              <ArrowUp size={16} />
+            </button>
           </div>
-          <p className="border-t border-line px-4 py-1.5 text-center font-mono text-[10px] text-ink-3">
-            {uploadNote ?? "Responses are grounded in verified organizational documentation."}
-          </p>
         </form>
       </div>
 

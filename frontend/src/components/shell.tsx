@@ -48,6 +48,7 @@ import {
 import type { SearchResultItem, ThreadRead, UserRead } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import InviteMemberModal from "@/components/invite";
+import { LogoMark } from "@/components/logo";
 
 const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/ask", label: "Ask", icon: MessagesSquare },
@@ -143,8 +144,8 @@ function KnowledgeSearch({ onClose }: { onClose: () => void }) {
         className="w-[600px] max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-line bg-canvas shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
-          {busy ? <Spinner /> : <Search size={15} className="shrink-0 text-ink-3" />}
+        <div className="flex items-center gap-3 border-b border-line px-5 py-4">
+          {busy ? <Spinner /> : <Search size={17} className="shrink-0 text-ink-3" />}
           <input
             autoFocus
             value={q}
@@ -156,7 +157,7 @@ function KnowledgeSearch({ onClose }: { onClose: () => void }) {
               else if (e.key === "Escape") onClose();
             }}
             placeholder="Search the knowledge base…"
-            className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-ink-3 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[15px] placeholder:text-ink-3 focus:outline-none"
           />
           <kbd className="rounded border border-line bg-subtle px-1.5 font-mono text-[10px] text-ink-3">
             esc
@@ -181,7 +182,7 @@ function KnowledgeSearch({ onClose }: { onClose: () => void }) {
                   </span>
                 )}
               </span>
-              <span className="mt-1 line-clamp-2 block text-[12px] leading-normal text-ink-2">
+              <span className="mt-1 line-clamp-2 text-[12px] leading-normal text-ink-2">
                 {item.content}
               </span>
             </button>
@@ -364,9 +365,7 @@ export default function Shell({ children }: { children: ReactNode }) {
       {/* ——— Sidebar ——— */}
       <aside className="sticky top-0 flex h-screen w-[228px] shrink-0 flex-col border-r border-line bg-sidebar">
         <div className="flex items-center gap-2.5 px-4 pt-5 pb-4">
-          <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-lg bg-accent text-[13px] font-bold text-white shadow-sm">
-            K
-          </span>
+          <LogoMark size={30} />
           <span className="truncate text-[13.5px] font-semibold tracking-[-0.01em]">
             Knowledge Copilot
           </span>
@@ -416,7 +415,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2.5 border-b border-line bg-page/80 px-5 backdrop-blur-md">
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex w-full max-w-[420px] items-center gap-2 rounded-[10px] border border-line bg-canvas px-3 py-[7px] text-[12.5px] text-ink-3 shadow-sm transition-all hover:border-line-strong hover:shadow-md"
+            className="flex h-9 w-full max-w-[420px] items-center gap-2 rounded-[10px] border border-line bg-canvas px-3 text-[13px] text-ink-3 shadow-sm transition-all hover:border-line-strong hover:shadow-md"
           >
             <Search size={13} />
             Search knowledge base…
