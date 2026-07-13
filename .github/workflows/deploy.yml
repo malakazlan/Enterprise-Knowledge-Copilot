@@ -1,0 +1,78 @@
+# Auto-deploy to production on every push to main.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST      e.g. 34.107.115.39
+#   DEPLOY_USER      SSH username on the VM (a user whose public key is in
+#                    the instance's SSH metadata; GCP grants it passwordless sudo)
+#   DEPLOY_SSH_KEY   the matching PRIVATE key (OpenSSH format)
+#   SITE_ADDRESS     e.g. 34.107.115.39.sslip.io (or your domain)
+#
+# Until the secrets exist, the job skips itself gracefully.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy · pull + rebuild on the VM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Deploy secrets not configured — skipping."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH
+        if: steps.check.outputs.configured == 'true'
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Pull and rebuild
+        if: steps.check.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          SITE: ${{ secrets.SITE_ADDRESS }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$USER@$HOST" "
+            set -e
+            cd /opt/ekc/src
+            sudo git fetch origin
+            sudo git reset --hard origin/main
+            cd infra
+            sudo SITE_ADDRESS='$SITE' docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+          "
+
+      - name: Health check
+        if: steps.check.outputs.configured == 'true'
+        env:
+          SITE: ${{ secrets.SITE_ADDRESS }}
+        run: |
+          sleep 20
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://$SITE/api/v1/health/live" || true)
+            [ "$code" = "200" ] && echo "healthy" && exit 0
+            sleep 10
+          done
+          echo "health check failed" && exit 1
