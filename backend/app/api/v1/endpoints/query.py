@@ -8,13 +8,17 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.api.deps import CurrentPrincipal, DbSession, Principal, limit_query_rate
 from app.api.v1.endpoints.threads import DEFAULT_TITLE, get_owned_thread
-from app.core.exceptions import PermissionDeniedError
+from app.core.exceptions import NotFoundError, PermissionDeniedError
+from app.models.querylog import QueryLog
+from app.models.user import UserRole
 from app.schemas.query import (
     BatchQueryRequest,
     BatchQueryResponse,
@@ -203,3 +207,27 @@ async def query_stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
+
+
+class FeedbackRequest(BaseModel):
+    verdict: Literal["helpful", "unhelpful"]
+
+
+@router.post("/{query_id}/feedback", status_code=204, summary="Rate an answer")
+async def submit_feedback(
+    payload: FeedbackRequest,
+    db: DbSession,
+    principal: CurrentPrincipal,
+    query_id: uuid.UUID,
+) -> None:
+    """Callers may rate their own answers; admins may rate any."""
+    log = await db.get(QueryLog, query_id)
+    if log is None:
+        raise NotFoundError("Query not found.")
+    is_owner = (principal.user_id is not None and log.user_id == principal.user_id) or (
+        principal.api_key is not None and log.api_key_id == principal.api_key.id
+    )
+    if not is_owner and principal.role != UserRole.ADMIN:
+        raise PermissionDeniedError("You can only rate your own answers.")
+    log.feedback = payload.verdict
+    await db.commit()

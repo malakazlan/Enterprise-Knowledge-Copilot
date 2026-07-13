@@ -167,3 +167,39 @@ async def test_batch_query(
         "/api/v1/query/batch", headers=headers, json={"queries": ["q"] * 26}
     )
     assert too_many.status_code == 422
+
+
+async def test_answer_feedback(
+    client: AsyncClient, make_user: MakeUser, auth_headers: AuthHeaders
+) -> None:
+    await make_user("admin@example.com", role=UserRole.ADMIN)
+    await make_user("other@example.com", role=UserRole.USER)
+    admin = await auth_headers("admin@example.com")
+    other = await auth_headers("other@example.com")
+
+    upload = await client.post(
+        "/api/v1/documents",
+        headers=admin,
+        files={"file": ("s.md", b"# Safety\n\nAll workers must wear a helmet.", "text/markdown")},
+    )
+    assert upload.status_code == 201
+    answer = await client.post(
+        "/api/v1/query", headers=admin, json={"query": "Who must wear a helmet?"}
+    )
+    query_id = answer.json()["query_id"]
+
+    # A different (non-admin) user cannot rate someone else's answer.
+    denied = await client.post(
+        f"/api/v1/query/{query_id}/feedback", headers=other, json={"verdict": "helpful"}
+    )
+    assert denied.status_code == 403
+
+    rated = await client.post(
+        f"/api/v1/query/{query_id}/feedback", headers=admin, json={"verdict": "helpful"}
+    )
+    assert rated.status_code == 204
+
+    invalid = await client.post(
+        f"/api/v1/query/{query_id}/feedback", headers=admin, json={"verdict": "meh"}
+    )
+    assert invalid.status_code == 422
