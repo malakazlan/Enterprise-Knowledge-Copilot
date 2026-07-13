@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
-CONNECTOR_TYPES = ("folder",)  # s3, sharepoint, gdrive follow behind the same table
+CONNECTOR_TYPES = ("folder", "gdrive")  # s3, sharepoint, ... follow behind the same table
 
 
 class Connector(UUIDPrimaryKeyMixin, TimestampMixin, Base):

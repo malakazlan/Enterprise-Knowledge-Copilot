@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
@@ -28,6 +29,7 @@ from app.models.collection import Collection
 from app.models.connector import CONNECTOR_TYPES, Connector
 from app.models.document import Document, IngestionStatus
 from app.models.user import UserRole
+from app.services.connectors import gdrive
 from app.services.documents import DocumentService
 from app.services.ingestion.factory import get_parser
 from app.services.ingestion.pipeline import IngestionError, IngestionPipeline
@@ -37,6 +39,9 @@ router = APIRouter(
 )
 
 Admin = Annotated[Principal, Depends(require_principal_roles(UserRole.ADMIN))]
+
+# Browser redirects from Google land here; the signed state IS the auth.
+public_router = APIRouter(tags=["connectors"])
 
 _MAX_FILES_PER_SYNC = 500
 
@@ -62,10 +67,17 @@ class FolderSyncReport(BaseModel):
     failed: list[FolderSyncFailure]
 
 
+class GdriveConfig(BaseModel):
+    # Restrict to one Drive folder (empty = everything the grant can read).
+    folder_id: str | None = Field(default=None, max_length=200)
+    collection_id: uuid.UUID | None = None
+    max_files: int = Field(default=200, ge=1, le=500)
+
+
 class ConnectorCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     type: str
-    config: FolderSyncRequest
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConnectorRead(BaseModel):
@@ -180,23 +192,34 @@ async def create_connector(payload: ConnectorCreate, db: DbSession, admin: Admin
         raise ValidationAppError(
             f"Unknown connector type {payload.type!r}. Available: {', '.join(CONNECTOR_TYPES)}."
         )
+    if payload.type == "folder":
+        config = FolderSyncRequest.model_validate(payload.config).model_dump(mode="json")
+    else:
+        config = GdriveConfig.model_validate(payload.config).model_dump(mode="json")
+        config["connected"] = False
     connector = Connector(
         id=uuid.uuid4(),
         name=payload.name,
         type=payload.type,
-        config=payload.config.model_dump(mode="json"),
+        config=config,
         created_by=admin.user_id,
     )
     db.add(connector)
     await db.commit()
     await db.refresh(connector)
-    return ConnectorRead.model_validate(connector)
+    return _read(connector)
+
+
+def _read(connector: Connector) -> ConnectorRead:
+    read = ConnectorRead.model_validate(connector)
+    read.config = {k: v for k, v in read.config.items() if not k.endswith("_enc")}
+    return read
 
 
 @router.get("", response_model=list[ConnectorRead], summary="List saved connectors")
 async def list_connectors(db: DbSession) -> list[ConnectorRead]:
     result = await db.execute(select(Connector).order_by(Connector.created_at))
-    return [ConnectorRead.model_validate(connector) for connector in result.scalars().all()]
+    return [_read(connector) for connector in result.scalars().all()]
 
 
 @router.post(
@@ -210,8 +233,11 @@ async def sync_connector(
     connector = await db.get(Connector, connector_id)
     if connector is None:
         raise NotFoundError("Connector not found.")
-    request = FolderSyncRequest.model_validate(connector.config)
-    report = await _run_folder_sync(db, storage, request, admin.user_id)
+    if connector.type == "folder":
+        request = FolderSyncRequest.model_validate(connector.config)
+        report = await _run_folder_sync(db, storage, request, admin.user_id)
+    else:
+        report = await _run_gdrive_sync(db, storage, connector, admin.user_id)
     connector.last_sync_at = datetime.now(timezone.utc)
     connector.last_sync_report = report.model_dump(mode="json")
     await db.commit()
@@ -225,3 +251,104 @@ async def delete_connector(db: DbSession, connector_id: uuid.UUID) -> None:
         raise NotFoundError("Connector not found.")
     await db.delete(connector)
     await db.commit()
+
+
+async def _run_gdrive_sync(
+    db: DbSession, storage: Storage, connector: Connector, uploaded_by: uuid.UUID | None
+) -> FolderSyncReport:
+    refresh = connector.config.get("refresh_token_enc")
+    if not refresh:
+        raise ValidationAppError("Google Drive is not connected yet — click Connect first.")
+    config = GdriveConfig.model_validate(
+        {k: v for k, v in connector.config.items() if not k.endswith("_enc") and k != "connected"}
+    )
+    if config.collection_id is not None and await db.get(Collection, config.collection_id) is None:
+        raise ValidationAppError("Collection not found.")
+
+    files = await gdrive.list_files(refresh, config.folder_id, config.max_files)
+    existing = {checksum for (checksum,) in (await db.execute(select(Document.checksum))).all()}
+    parser = get_parser()
+    service = DocumentService(db, storage)
+    report = FolderSyncReport(
+        path=f"gdrive:{config.folder_id or 'all'}",
+        scanned=len(files),
+        ingested=[],
+        skipped_existing=0,
+        skipped_unsupported=0,
+        failed=[],
+    )
+
+    for meta in files:
+        downloaded = await gdrive.download_file(refresh, meta)
+        if downloaded is None:
+            report.skipped_unsupported += 1
+            continue
+        filename, content_type, data = downloaded
+        if not parser.supports(content_type, filename):
+            report.skipped_unsupported += 1
+            continue
+        if not data or len(data) > settings.max_upload_bytes:
+            report.failed.append(
+                FolderSyncFailure(filename=filename, error="empty or exceeds size limit")
+            )
+            continue
+        checksum = hashlib.sha256(data).hexdigest()
+        if checksum in existing:
+            report.skipped_existing += 1
+            continue
+        existing.add(checksum)
+
+        document, job = await service.create_from_upload(
+            filename=filename,
+            content_type=content_type,
+            data=data,
+            uploaded_by=uploaded_by,
+            collection_id=config.collection_id,
+        )
+        try:
+            await IngestionPipeline(db, storage).run(job.id)
+        except IngestionError:
+            pass  # recorded on the document; reported below
+        await db.refresh(document)
+        if document.status == IngestionStatus.FAILED:
+            report.failed.append(
+                FolderSyncFailure(filename=filename, error=document.error or "ingestion failed")
+            )
+        else:
+            report.ingested.append(filename)
+
+    return report
+
+
+@router.get(
+    "/{connector_id}/authorize",
+    summary="Start the provider consent flow for an OAuth connector",
+)
+async def authorize_connector(
+    db: DbSession, admin: Admin, connector_id: uuid.UUID
+) -> RedirectResponse:
+    connector = await db.get(Connector, connector_id)
+    if connector is None:
+        raise NotFoundError("Connector not found.")
+    if connector.type != "gdrive":
+        raise ValidationAppError("Only Google Drive connectors use the consent flow.")
+    return RedirectResponse(gdrive.authorization_url(connector.id), status_code=307)
+
+
+@public_router.get("/gdrive/callback", summary="Google consent redirect target")
+async def gdrive_callback(
+    db: DbSession,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+) -> RedirectResponse:
+    if error or not code or not state:
+        raise ValidationAppError(f"Google Drive connect failed: {error or 'missing code/state'}.")
+    connector_id = gdrive.read_state(state)
+    connector = await db.get(Connector, connector_id)
+    if connector is None or connector.type != "gdrive":
+        raise NotFoundError("Connector not found.")
+    encrypted = await gdrive.exchange_code(code)
+    connector.config = {**connector.config, "refresh_token_enc": encrypted, "connected": True}
+    await db.commit()
+    return RedirectResponse("/integrations/", status_code=307)

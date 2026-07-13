@@ -372,3 +372,6 @@ export const syncConnector = (id: string): Promise<FolderSyncReport> =>
 
 export const deleteConnector = (id: string): Promise<void> =>
   request<void>(`/connectors/${id}`, { method: "DELETE" });
+
+export const connectorAuthorizeUrl = (id: string): string =>
+  `${V1}/connectors/${id}/authorize`;

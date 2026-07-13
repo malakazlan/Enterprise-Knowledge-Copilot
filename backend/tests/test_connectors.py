@@ -87,7 +87,7 @@ async def test_saved_connector_lifecycle(
     bad_type = await client.post(
         "/api/v1/connectors",
         headers=admin,
-        json={"name": "x", "type": "gdrive", "config": {"path": str(drop)}},
+        json={"name": "x", "type": "dropbox", "config": {"path": str(drop)}},
     )
     assert bad_type.status_code == 422
 
