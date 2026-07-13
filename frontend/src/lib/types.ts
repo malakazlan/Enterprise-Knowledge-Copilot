@@ -212,3 +212,14 @@ export interface EvalRunRead {
   results: Record<string, unknown>[];
   created_at: string;
 }
+
+export interface ConnectorRead {
+  id: string;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  is_active: boolean;
+  last_sync_at: string | null;
+  last_sync_report: FolderSyncReport | null;
+  created_at: string;
+}

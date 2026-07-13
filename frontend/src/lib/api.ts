@@ -7,6 +7,7 @@ import type {
   ChunkRead,
   CollectionMemberRead,
   CollectionRead,
+  ConnectorRead,
   DocumentRead,
   EvalCaseRead,
   EvalDatasetDetail,
@@ -353,3 +354,21 @@ export const runEvalDataset = (datasetId: string, profile: string | null): Promi
 
 export const listEvalRuns = (datasetId: string): Promise<EvalRunRead[]> =>
   request<EvalRunRead[]>(`/evals/datasets/${datasetId}/runs`);
+
+// ---- saved connectors ----
+
+export const listConnectors = (): Promise<ConnectorRead[]> =>
+  request<ConnectorRead[]>("/connectors");
+
+export const createConnector = (
+  name: string,
+  type: string,
+  config: Record<string, unknown>,
+): Promise<ConnectorRead> =>
+  request<ConnectorRead>("/connectors", { method: "POST", json: { name, type, config } });
+
+export const syncConnector = (id: string): Promise<FolderSyncReport> =>
+  request<FolderSyncReport>(`/connectors/${id}/sync`, { method: "POST" });
+
+export const deleteConnector = (id: string): Promise<void> =>
+  request<void>(`/connectors/${id}`, { method: "DELETE" });

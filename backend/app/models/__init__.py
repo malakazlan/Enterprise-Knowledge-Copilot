@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from app.models.apikey import ApiKey
 from app.models.collection import Collection, CollectionMember
+from app.models.connector import CONNECTOR_TYPES, Connector
 from app.models.document import (
     Document,
     DocumentChunk,
@@ -23,11 +24,13 @@ from app.models.user import User, UserRole
 from app.models.webhook import WEBHOOK_EVENTS, Webhook
 
 __all__ = [
+    "CONNECTOR_TYPES",
     "WEBHOOK_EVENTS",
     "ApiKey",
     "ChatThread",
     "Collection",
     "CollectionMember",
+    "Connector",
     "Document",
     "DocumentChunk",
     "EvalCase",
