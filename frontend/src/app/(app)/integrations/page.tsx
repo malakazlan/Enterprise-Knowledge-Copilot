@@ -50,9 +50,14 @@ function Connectors() {
   const refresh = useCallback(() => {
     listConnectors()
       .then(setConnectors)
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Could not reach the server."),
-      );
+      .catch((err) => {
+        setConnectors([]);
+        if (err instanceof ApiError && err.status === 403) {
+          setError("This section requires the admin role — sign in as an administrator.");
+        } else {
+          setError(err instanceof ApiError ? err.message : "Could not reach the server.");
+        }
+      });
     listCollections()
       .then(setCollections)
       .catch(() => setCollections([]));
@@ -163,7 +168,7 @@ function Connectors() {
         {connectors === null ? (
           <Spinner />
         ) : connectors.length === 0 ? (
-          <p className="text-[12.5px] text-ink-3">No connectors yet.</p>
+          !error && <p className="text-[12.5px] text-ink-3">No connectors yet.</p>
         ) : (
           connectors.map((connector) => (
             <div
@@ -232,9 +237,14 @@ function Webhooks() {
   const refresh = useCallback(() => {
     listWebhooks()
       .then(setHooks)
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Could not reach the server."),
-      );
+      .catch((err) => {
+        setHooks([]);
+        if (err instanceof ApiError && err.status === 403) {
+          setError("This section requires the admin role — sign in as an administrator.");
+        } else {
+          setError(err instanceof ApiError ? err.message : "Could not reach the server.");
+        }
+      });
   }, []);
 
   useEffect(refresh, [refresh]);
@@ -333,7 +343,7 @@ function Webhooks() {
         {hooks === null ? (
           <Spinner />
         ) : hooks.length === 0 ? (
-          <p className="text-[12.5px] text-ink-3">No webhooks yet.</p>
+          !error && <p className="text-[12.5px] text-ink-3">No webhooks yet.</p>
         ) : (
           hooks.map((hook) => (
             <div
