@@ -77,3 +77,4 @@ backend/alembic/versions/*.pyc
 
 /prod.md
 
+frontend/.next-stale/
