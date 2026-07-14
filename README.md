@@ -58,6 +58,7 @@ The fully-local tier does real semantic search with no external calls after a on
 ```bash
 git clone https://github.com/malakazlan/Enterprise-Knowledge-Copilot.git
 cd Enterprise-Knowledge-Copilot
+cp backend/.env.example backend/.env   # optional — defaults run fully local
 docker compose -f infra/docker-compose.yml up -d
 ```
 
@@ -79,7 +80,7 @@ cd frontend
 npm ci && npm run dev
 ```
 
-Quality gates: `ruff check`, `ruff format --check`, `mypy` (strict), `pytest` (170+ hermetic tests — no network, no external services).
+Quality gates: `ruff check`, `ruff format --check`, `mypy` (strict), `pytest` (210+ hermetic tests — no network, no external services).
 
 ## Configuration essentials
 
@@ -101,6 +102,12 @@ OIDC_ISSUER=https://accounts.google.com
 OIDC_CLIENT_ID=...
 OIDC_CLIENT_SECRET=...
 OIDC_REDIRECT_URL=https://your-host/api/v1/auth/oidc/callback
+
+# Click-to-connect connectors (optional): Google Drive & Notion OAuth
+PUBLIC_BASE_URL=https://your-host
+GDRIVE_CLIENT_ID=...       GDRIVE_CLIENT_SECRET=...
+NOTION_CLIENT_ID=...       NOTION_CLIENT_SECRET=...
+# Confluence & server folders need no env vars — configured in the UI.
 ```
 
 ## Connect an agent (MCP)
