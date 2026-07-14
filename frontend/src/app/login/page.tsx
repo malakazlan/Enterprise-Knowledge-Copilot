@@ -5,7 +5,6 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { adoptTokens, ApiError, login, register, SSO_LOGIN_URL, ssoStatus } from "@/lib/api";
 import { applyStoredTheme } from "@/components/shell";
-import { BrandHero } from "@/components/brand-hero";
 import { LogoMark } from "@/components/logo";
 import { Button, Field } from "@/components/ui";
 
@@ -54,9 +53,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <div className="flex flex-1 flex-col items-center justify-center px-4">
-        <div className="w-[360px] max-w-full">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
+      <div className="w-[360px] max-w-full">
         <div className="mb-5">
           <LogoMark size={44} />
         </div>
@@ -137,20 +135,6 @@ export default function LoginPage() {
           <br />
           Self-hosted · your data never leaves this server.
         </p>
-        </div>
-      </div>
-
-      <div className="hidden w-[46%] flex-col items-center justify-center gap-6 bg-[#060b16] p-10 lg:flex">
-        <BrandHero className="w-full max-w-[620px]" />
-        <div className="max-w-[440px] text-center">
-          <p className="text-[15px] font-semibold text-white">
-            One grounded knowledge core. Six ways in.
-          </p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-[#8fa3c4]">
-            Cited answers for your team, context and memory for your agents — with search,
-            APIs, and human governance around everything.
-          </p>
-        </div>
       </div>
     </div>
   );
