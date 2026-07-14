@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import {
   ApiError,
+  connectorAuthorize,
   createConnector,
   createWebhook,
   deleteConnector,
@@ -35,7 +36,77 @@ function relSync(iso: string | null): string {
   return `synced ${Math.round(mins / 1440)}d ago`;
 }
 
-const PLANNED = ["S3 / MinIO", "SharePoint", "Google Drive"];
+const BRAND_MARKS: Record<string, React.ReactNode> = {
+  gdrive: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path d="M8.6 2.5h6.8l6.3 11h-6.8z" fill="#FFBA00" />
+      <path d="M15.4 13.5h6.3l-3.4 6h-6.3z" fill="#2684FC" />
+      <path d="M8.6 2.5 2.3 13.5l3.4 6 6.3-11z" fill="#00AC47" />
+    </svg>
+  ),
+  folder: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        d="M3 5.5A1.5 1.5 0 0 1 4.5 4h5l2 2.5h8A1.5 1.5 0 0 1 21 8v10a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"
+        fill="#64748B"
+      />
+    </svg>
+  ),
+  slack: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <rect x="9.5" y="2" width="3.4" height="8" rx="1.7" fill="#36C5F0" />
+      <rect x="14" y="9.5" width="8" height="3.4" rx="1.7" fill="#2EB67D" />
+      <rect x="11" y="14" width="3.4" height="8" rx="1.7" fill="#ECB22E" />
+      <rect x="2" y="11" width="8" height="3.4" rx="1.7" fill="#E01E5A" />
+    </svg>
+  ),
+  gmail: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path d="M3 6.5v11h3.5v-7L12 14l5.5-3.5v7H21v-11L12 12z" fill="#EA4335" />
+      <path d="M3 6.5 12 12l9-5.5V6a1.5 1.5 0 0 0-2.3-1.3L12 8.9 5.3 4.7A1.5 1.5 0 0 0 3 6z" fill="#C5221F" opacity=".85" />
+    </svg>
+  ),
+  dropbox: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden fill="#0061FF">
+      <path d="m12 6.9-4.5 2.9L12 12.7l-4.5 2.9L3 12.6l4.5-2.8L3 6.9l4.5-2.9zm0 0 4.5-2.9L21 6.9l-4.5 2.9L21 12.6l-4.5 3L12 12.7l4.5-2.9zM7.5 17.6l4.5-2.9 4.5 2.9L12 20.5z" />
+    </svg>
+  ),
+  sharepoint: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <circle cx="10" cy="8" r="6" fill="#036C70" />
+      <circle cx="16" cy="13" r="5" fill="#1A9BA1" />
+      <circle cx="10.5" cy="17" r="4.5" fill="#37C6D0" />
+    </svg>
+  ),
+  notion: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="3" fill="#fff" stroke="#111" strokeWidth="1.4" />
+      <path d="M8 17V8.5l1.8-.2 4.6 6.8V8h1.8v9l-1.9.2-4.6-6.8V17z" fill="#111" />
+    </svg>
+  ),
+  confluence: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path d="M4 17.5c2.6-4.3 5-5.4 9.3-3.3l5 2.4-2 4.1-4.8-2.3c-2.3-1.1-3.2-.8-4.7 1.4z" fill="#2684FF" />
+      <path d="M20 6.5c-2.6 4.3-5 5.4-9.3 3.3l-5-2.4 2-4.1 4.8 2.3c2.3 1.1 3.2.8 4.7-1.4z" fill="#0052CC" />
+    </svg>
+  ),
+};
+
+const PROVIDERS: {
+  key: string;
+  label: string;
+  blurb: string;
+  status: "live" | "oauth" | "soon";
+}[] = [
+  { key: "gdrive", label: "Google Drive", blurb: "Docs, Sheets, Slides & files — one click", status: "oauth" },
+  { key: "folder", label: "Server folder", blurb: "Mounted shares, drop folders, rclone", status: "live" },
+  { key: "notion", label: "Notion", blurb: "Workspace pages — one click", status: "oauth" },
+  { key: "confluence", label: "Confluence", blurb: "Spaces & pages via API token", status: "live" },
+  { key: "slack", label: "Slack", blurb: "Channels & threads as knowledge", status: "soon" },
+  { key: "gmail", label: "Gmail", blurb: "Label-scoped mail ingestion", status: "soon" },
+  { key: "dropbox", label: "Dropbox", blurb: "Team folders", status: "soon" },
+  { key: "sharepoint", label: "SharePoint", blurb: "Sites & document libraries", status: "soon" },
+];
 
 function Connectors() {
   const [connectors, setConnectors] = useState<ConnectorRead[] | null>(null);
@@ -44,6 +115,12 @@ function Connectors() {
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [collectionId, setCollectionId] = useState("");
+  const [addingConfluence, setAddingConfluence] = useState(false);
+  const [confluenceName, setConfluenceName] = useState("");
+  const [confluenceUrl, setConfluenceUrl] = useState("");
+  const [confluenceEmail, setConfluenceEmail] = useState("");
+  const [confluenceToken, setConfluenceToken] = useState("");
+  const [confluenceSpaces, setConfluenceSpaces] = useState("");
   const [syncing, setSyncing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +161,47 @@ function Connectors() {
     }
   }
 
+  async function connectOauth(type: "gdrive" | "notion", defaultName: string) {
+    const label = type === "gdrive" ? "Google Drive" : "Notion";
+    const name = window.prompt(`Name this ${label} connector:`, defaultName);
+    if (!name) return;
+    setError(null);
+    try {
+      const connector = await createConnector(name.trim(), type, {});
+      const { authorize_url } = await connectorAuthorize(connector.id);
+      window.location.href = authorize_url;
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : `Could not start the ${label} connect flow.`,
+      );
+    }
+  }
+
+  async function createConfluence(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await createConnector(confluenceName.trim(), "confluence", {
+        base_url: confluenceUrl.trim(),
+        email: confluenceEmail.trim(),
+        api_token: confluenceToken,
+        space_keys: confluenceSpaces
+          .split(",")
+          .map((key) => key.trim())
+          .filter(Boolean),
+      });
+      setConfluenceName("");
+      setConfluenceUrl("");
+      setConfluenceEmail("");
+      setConfluenceToken("");
+      setConfluenceSpaces("");
+      setAddingConfluence(false);
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save the connector.");
+    }
+  }
+
   async function runSync(id: string) {
     setSyncing(id);
     setError(null);
@@ -108,13 +226,44 @@ function Connectors() {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-[15px] font-semibold">Connectors</h2>
         <p className="text-[12.5px] text-ink-2">
-          Configure a source once; sync on demand or on a schedule. Re-syncs are idempotent.
+          Connect a source once; sync on demand or on a schedule. Re-syncs are idempotent.
         </p>
-        <span className="ml-auto">
-          <Button variant="primary" small onClick={() => setAdding((v) => !v)}>
-            + Folder connector
-          </Button>
-        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-4 gap-2.5 max-md:grid-cols-2">
+        {PROVIDERS.map((provider) => (
+          <button
+            key={provider.key}
+            disabled={provider.status === "soon"}
+            onClick={() => {
+              if (provider.key === "folder") setAdding((v) => !v);
+              else if (provider.key === "gdrive") void connectOauth("gdrive", "company-drive");
+              else if (provider.key === "notion") void connectOauth("notion", "team-notion");
+              else if (provider.key === "confluence") setAddingConfluence((v) => !v);
+            }}
+            className={`group flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all ${
+              provider.status === "soon"
+                ? "border-line opacity-55"
+                : "border-line-strong bg-canvas shadow-sm hover:border-accent hover:shadow-md"
+            }`}
+          >
+            <span className="mt-0.5 shrink-0">{BRAND_MARKS[provider.key]}</span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-[13px] font-semibold">
+                {provider.label}
+                {provider.status !== "soon" ? (
+                  <Pill tone="ok">live</Pill>
+                ) : (
+                  <span className="text-[10px] text-ink-3">soon</span>
+                )}
+              </span>
+              <span className="block truncate text-[11px] text-ink-3">{provider.blurb}</span>
+            </span>
+            {provider.status !== "soon" && (
+              <span className="ml-auto text-ink-3 group-hover:text-accent">+</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {adding && (
@@ -153,6 +302,66 @@ function Connectors() {
           <Button variant="primary" small type="submit" disabled={!name.trim() || !path.trim()}>
             Save
           </Button>
+        </form>
+      )}
+
+      {addingConfluence && (
+        <form
+          onSubmit={createConfluence}
+          className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-subtle px-3 py-2.5"
+        >
+          <input
+            value={confluenceName}
+            onChange={(e) => setConfluenceName(e.target.value)}
+            placeholder="name, e.g. eng-wiki"
+            required
+            className="w-[130px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 text-[12.5px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceUrl}
+            onChange={(e) => setConfluenceUrl(e.target.value)}
+            placeholder="https://yourorg.atlassian.net/wiki"
+            required
+            className="min-w-[210px] flex-1 rounded-lg border border-line-strong bg-canvas px-3 py-1.5 font-mono text-[12px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceEmail}
+            onChange={(e) => setConfluenceEmail(e.target.value)}
+            placeholder="you@company.com"
+            type="email"
+            required
+            className="w-[170px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 text-[12.5px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceToken}
+            onChange={(e) => setConfluenceToken(e.target.value)}
+            placeholder="API token (id.atlassian.com)"
+            type="password"
+            required
+            className="w-[190px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 font-mono text-[12px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceSpaces}
+            onChange={(e) => setConfluenceSpaces(e.target.value)}
+            placeholder="spaces: ENG, HR (empty = all)"
+            className="w-[180px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 font-mono text-[12px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <Button
+            variant="primary"
+            small
+            type="submit"
+            disabled={
+              !confluenceName.trim() ||
+              !confluenceUrl.trim() ||
+              !confluenceEmail.trim() ||
+              !confluenceToken
+            }
+          >
+            Save
+          </Button>
+          <span className="w-full font-mono text-[10.5px] text-ink-3">
+            The token is stored encrypted and never shown again.
+          </span>
         </form>
       )}
 
@@ -209,18 +418,6 @@ function Connectors() {
             </div>
           ))
         )}
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
-        {PLANNED.map((label) => (
-          <span
-            key={label}
-            className="rounded-full border border-dashed border-line px-3 py-1 text-[11.5px] text-ink-3"
-            title="Planned"
-          >
-            {label} · planned
-          </span>
-        ))}
       </div>
     </Card>
   );
@@ -380,6 +577,16 @@ function AutomationNotes() {
           <code className="mt-1 block overflow-x-auto rounded-lg bg-subtle px-3 py-2 font-mono text-[11.5px]">
             POST /api/v1/query/batch {"{"} &quot;queries&quot;: [&quot;…&quot;, &quot;…&quot;] {"}"} · X-API-Key: ekc_…
           </code>
+        </div>
+        <div>
+          <p className="font-semibold text-ink">OpenAI-compatible endpoint — one-line integration for any framework</p>
+          <code className="mt-1 block overflow-x-auto rounded-lg bg-subtle px-3 py-2 font-mono text-[11.5px]">
+            OpenAI(base_url=&quot;https://your-host/v1&quot;, api_key=&quot;ekc_…&quot;) — model = profile name
+          </code>
+          <p className="mt-1">
+            Grounded, cited answers through the standard chat API; trust signals ride in an{" "}
+            <code className="font-mono text-[11px]">ekc</code> extension field. Streaming supported.
+          </p>
         </div>
         <div>
           <p className="font-semibold text-ink">Context packs — token-budgeted context for agent prompts</p>

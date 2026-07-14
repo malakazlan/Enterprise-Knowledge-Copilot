@@ -75,6 +75,14 @@ class Settings(BaseSettings):
     oidc_redirect_url: str | None = None
     oidc_provider_name: str = "SSO"
     oidc_scopes: str = "openid email profile"
+    # Public base URL of this deployment (needed by OAuth connectors).
+    public_base_url: str | None = None
+    # Google Drive click-to-connect (OAuth client with drive.readonly scope).
+    gdrive_client_id: str | None = None
+    gdrive_client_secret: SecretStr | None = None
+    # Notion click-to-connect (public integration credentials).
+    notion_client_id: str | None = None
+    notion_client_secret: SecretStr | None = None
     # Directory of the built web app (Next.js static export). When unset, the
     # repo-relative frontend/out is used if present; the console is the fallback.
     frontend_dist: str | None = None

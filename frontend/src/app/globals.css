@@ -1,42 +1,46 @@
 @import "tailwindcss";
 
-/* Design tokens — Mockup C (“standard SaaS”), approved 2026-07-11.
-   Light is the default; dark is applied via html[data-theme="dark"]. */
+/* Design tokens — "calm light" revision, 2026-07-14.
+   Layered surfaces: --page (app background) sits under --canvas (raised cards),
+   so depth comes from tone, not heavy borders. Light is the default; dark is
+   applied via html[data-theme="dark"]. */
 :root {
+  --page: #fafaf9;
   --canvas: #ffffff;
-  --sidebar: #f8f8f7;
-  --subtle: #f4f4f2;
-  --hover: #efefed;
-  --line: #e9e9e6;
-  --line-strong: #dbdbd7;
-  --ink: #1a1a17;
-  --ink-2: #6f6f6a;
+  --sidebar: #fafaf9;
+  --subtle: #f5f5f4;
+  --hover: #efefee;
+  --line: #ececea;
+  --line-strong: #dededa;
+  --ink: #1c1c1a;
+  --ink-2: #6b6b66;
   --ink-3: #a3a39c;
 
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
-  --accent-subtle: #eff4fe;
-  --accent-border: #bfd3fa;
+  --accent-subtle: #eef4fe;
+  --accent-border: #c4d6fa;
 
   --ok: #16a34a;
-  --ok-subtle: #eaf7ef;
+  --ok-subtle: #ebf7f0;
   --warn: #b45309;
-  --warn-subtle: #fdf3e3;
+  --warn-subtle: #fdf4e5;
   --danger: #dc2626;
-  --danger-subtle: #fdecec;
+  --danger-subtle: #fdeded;
 
-  --shadow-sm: 0 1px 2px rgba(26, 26, 23, 0.05);
-  --shadow-md: 0 2px 4px rgba(26, 26, 23, 0.04), 0 8px 24px rgba(26, 26, 23, 0.08);
-  --shadow-lg: 0 4px 8px rgba(26, 26, 23, 0.06), 0 20px 48px rgba(26, 26, 23, 0.14);
+  --shadow-sm: 0 1px 2px rgba(20, 20, 18, 0.04);
+  --shadow-md: 0 1px 2px rgba(20, 20, 18, 0.03), 0 8px 24px -8px rgba(20, 20, 18, 0.1);
+  --shadow-lg: 0 2px 6px rgba(20, 20, 18, 0.05), 0 24px 64px -16px rgba(20, 20, 18, 0.2);
 }
 
 html[data-theme="dark"] {
-  --canvas: #191919;
-  --sidebar: #202020;
-  --subtle: #242424;
-  --hover: #2c2c2c;
-  --line: #333330;
-  --line-strong: #44443f;
+  --page: #131312;
+  --canvas: #1c1c1b;
+  --sidebar: #131312;
+  --subtle: #252523;
+  --hover: #2d2d2b;
+  --line: #323230;
+  --line-strong: #434340;
   --ink: #ededea;
   --ink-2: #a5a59e;
   --ink-3: #6e6e68;
@@ -54,11 +58,12 @@ html[data-theme="dark"] {
   --danger-subtle: #3a1f1f;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.4), 0 20px 48px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.4), 0 24px 64px -16px rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
+  --color-page: var(--page);
   --color-canvas: var(--canvas);
   --color-sidebar: var(--sidebar);
   --color-subtle: var(--subtle);
@@ -86,22 +91,43 @@ html[data-theme="dark"] {
 }
 
 body {
-  background: var(--canvas);
+  background: var(--page);
   color: var(--ink);
   font-family: var(--font-geist-sans), -apple-system, "Segoe UI", sans-serif;
   font-size: 14px;
-  line-height: 1.55;
-  transition: background 0.2s, color 0.2s;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 ::selection {
-  background: var(--accent-subtle);
+  background: var(--accent-border);
 }
 
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
+}
+
+/* Entrance for reports and freshly rendered cards — one considered motion
+   moment instead of scattered micro-animations. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.35s cubic-bezier(0.21, 0.61, 0.35, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

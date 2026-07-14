@@ -81,6 +81,11 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
+    # OpenAI-compatible surface: point any OpenAI-SDK client's base_url here.
+    from app.api.compat import router as compat_router
+
+    app.include_router(compat_router, prefix="/v1")
+
     @app.get("/console", include_in_schema=False)
     async def console() -> FileResponse:
         """Self-contained fallback console (single file, no build chain)."""

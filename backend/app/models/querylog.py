@@ -58,3 +58,5 @@ class QueryLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # [{marker, chunk_id, document_id, filename, page_number}, ...]
     citations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
     took_ms: Mapped[float] = mapped_column(Float, nullable=False)
+    # End-user verdict on the answer ("helpful" / "unhelpful").
+    feedback: Mapped[str | None] = mapped_column(String(12), nullable=True)

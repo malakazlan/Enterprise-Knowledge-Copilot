@@ -50,6 +50,10 @@ def list_profiles() -> list[RagProfile]:
     return list(load_profiles().values())
 
 
+def list_profile_names() -> list[str]:
+    return sorted(load_profiles().keys())
+
+
 def get_profile(name: str) -> RagProfile:
     profile = load_profiles().get(name)
     if profile is None:

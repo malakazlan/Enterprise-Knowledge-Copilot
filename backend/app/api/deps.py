@@ -111,6 +111,12 @@ async def get_current_principal(
         raise AuthenticationError(
             "Missing credentials: provide a bearer token or an X-API-Key header."
         )
+    # OpenAI-style clients send the API key as a Bearer token.
+    if credentials.credentials.startswith("ekc_"):
+        api_key = await ApiKeyService(db).authenticate(credentials.credentials)
+        if api_key is None:
+            raise AuthenticationError("Invalid, revoked, or expired API key.")
+        return Principal(role=api_key.role, api_key=api_key)
     user = await _resolve_user(db, credentials)
     return Principal(role=user.role, user=user)
 

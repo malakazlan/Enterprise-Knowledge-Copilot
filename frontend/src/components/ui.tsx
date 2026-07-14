@@ -34,7 +34,7 @@ export function Pill({
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-white hover:bg-accent-hover border-transparent",
+  primary: "bg-accent text-white hover:bg-accent-hover border-transparent shadow-sm",
   secondary: "bg-canvas text-ink border-line-strong hover:bg-subtle shadow-sm",
   danger: "bg-canvas text-danger border-line-strong hover:bg-danger-subtle hover:border-danger shadow-sm",
   ghost: "text-ink-2 border-transparent hover:bg-subtle hover:text-ink",
@@ -51,7 +51,7 @@ export function Button({
 }) {
   return (
     <button
-      className={`inline-flex items-center gap-1.5 rounded-lg border font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-45 ${
+      className={`inline-flex items-center gap-1.5 rounded-lg border font-medium whitespace-nowrap transition-all active:translate-y-px disabled:pointer-events-none disabled:opacity-45 ${
         small ? "px-2.5 py-1 text-xs" : "px-3.5 py-1.5 text-[13.5px]"
       } ${BUTTON_VARIANTS[variant]} ${className}`}
       {...props}

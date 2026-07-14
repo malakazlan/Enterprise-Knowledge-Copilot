@@ -17,6 +17,7 @@ import type {
   ProfileSummary,
   QueryResponse,
   ReviewItem,
+  SearchResponse,
   ThreadDetail,
   ThreadRead,
   TokenPair,
@@ -170,6 +171,13 @@ export const runQuery = (query: string, profile: string | null): Promise<QueryRe
 
 export const listProfiles = (): Promise<ProfileSummary[]> =>
   request<ProfileSummary[]>("/profiles");
+
+// ---- search & team ----
+
+export const searchChunks = (query: string, topK = 8): Promise<SearchResponse> =>
+  request<SearchResponse>("/search", { method: "POST", json: { query, top_k: topK } });
+
+export const listUsers = (): Promise<UserRead[]> => request<UserRead[]>("/users?limit=200");
 
 // ---- reviews & admin ----
 
@@ -372,3 +380,9 @@ export const syncConnector = (id: string): Promise<FolderSyncReport> =>
 
 export const deleteConnector = (id: string): Promise<void> =>
   request<void>(`/connectors/${id}`, { method: "DELETE" });
+
+export const connectorAuthorize = (id: string): Promise<{ authorize_url: string }> =>
+  request<{ authorize_url: string }>(`/connectors/${id}/authorize`);
+
+export const submitFeedback = (queryId: string, verdict: "helpful" | "unhelpful"): Promise<void> =>
+  request<void>(`/query/${queryId}/feedback`, { method: "POST", json: { verdict } });

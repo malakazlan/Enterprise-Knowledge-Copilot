@@ -167,6 +167,24 @@ export interface ThreadDetail extends ThreadRead {
   messages: ThreadMessage[];
 }
 
+export interface SearchResultItem {
+  chunk_id: string;
+  document_id: string;
+  filename: string;
+  title: string | null;
+  page_number: number | null;
+  chunk_index: number;
+  content: string;
+  score: number;
+}
+
+export interface SearchResponse {
+  query: string;
+  profile: string;
+  results: SearchResultItem[];
+  took_ms: number;
+}
+
 export interface CollectionRead {
   id: string;
   name: string;

@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { adoptTokens, ApiError, login, register, SSO_LOGIN_URL, ssoStatus } from "@/lib/api";
 import { applyStoredTheme } from "@/components/shell";
+import { LogoMark } from "@/components/logo";
 import { Button, Field } from "@/components/ui";
 
 export default function LoginPage() {
@@ -54,8 +55,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-[360px] max-w-full">
-        <div className="mb-5 grid h-11 w-11 place-items-center rounded-xl bg-accent text-[19px] font-bold text-white">
-          K
+        <div className="mb-5">
+          <LogoMark size={44} />
         </div>
         <h1 className="text-[22px] font-bold tracking-[-0.02em]">
           {mode === "login" ? "Welcome back" : "Create your account"}
