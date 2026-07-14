@@ -100,12 +100,12 @@ const PROVIDERS: {
 }[] = [
   { key: "gdrive", label: "Google Drive", blurb: "Docs, Sheets, Slides & files — one click", status: "oauth" },
   { key: "folder", label: "Server folder", blurb: "Mounted shares, drop folders, rclone", status: "live" },
+  { key: "notion", label: "Notion", blurb: "Workspace pages — one click", status: "oauth" },
+  { key: "confluence", label: "Confluence", blurb: "Spaces & pages via API token", status: "live" },
   { key: "slack", label: "Slack", blurb: "Channels & threads as knowledge", status: "soon" },
-  { key: "notion", label: "Notion", blurb: "Pages and databases", status: "soon" },
   { key: "gmail", label: "Gmail", blurb: "Label-scoped mail ingestion", status: "soon" },
   { key: "dropbox", label: "Dropbox", blurb: "Team folders", status: "soon" },
   { key: "sharepoint", label: "SharePoint", blurb: "Sites & document libraries", status: "soon" },
-  { key: "confluence", label: "Confluence", blurb: "Spaces and pages", status: "soon" },
 ];
 
 function Connectors() {
@@ -115,6 +115,12 @@ function Connectors() {
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [collectionId, setCollectionId] = useState("");
+  const [addingConfluence, setAddingConfluence] = useState(false);
+  const [confluenceName, setConfluenceName] = useState("");
+  const [confluenceUrl, setConfluenceUrl] = useState("");
+  const [confluenceEmail, setConfluenceEmail] = useState("");
+  const [confluenceToken, setConfluenceToken] = useState("");
+  const [confluenceSpaces, setConfluenceSpaces] = useState("");
   const [syncing, setSyncing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,16 +161,44 @@ function Connectors() {
     }
   }
 
-  async function connectDrive() {
-    const name = window.prompt("Name this Google Drive connector:", "company-drive");
+  async function connectOauth(type: "gdrive" | "notion", defaultName: string) {
+    const label = type === "gdrive" ? "Google Drive" : "Notion";
+    const name = window.prompt(`Name this ${label} connector:`, defaultName);
     if (!name) return;
     setError(null);
     try {
-      const connector = await createConnector(name.trim(), "gdrive", {});
+      const connector = await createConnector(name.trim(), type, {});
       const { authorize_url } = await connectorAuthorize(connector.id);
       window.location.href = authorize_url;
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not start the Google connect flow.");
+      setError(
+        err instanceof ApiError ? err.message : `Could not start the ${label} connect flow.`,
+      );
+    }
+  }
+
+  async function createConfluence(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await createConnector(confluenceName.trim(), "confluence", {
+        base_url: confluenceUrl.trim(),
+        email: confluenceEmail.trim(),
+        api_token: confluenceToken,
+        space_keys: confluenceSpaces
+          .split(",")
+          .map((key) => key.trim())
+          .filter(Boolean),
+      });
+      setConfluenceName("");
+      setConfluenceUrl("");
+      setConfluenceEmail("");
+      setConfluenceToken("");
+      setConfluenceSpaces("");
+      setAddingConfluence(false);
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save the connector.");
     }
   }
 
@@ -203,7 +237,9 @@ function Connectors() {
             disabled={provider.status === "soon"}
             onClick={() => {
               if (provider.key === "folder") setAdding((v) => !v);
-              else if (provider.key === "gdrive") void connectDrive();
+              else if (provider.key === "gdrive") void connectOauth("gdrive", "company-drive");
+              else if (provider.key === "notion") void connectOauth("notion", "team-notion");
+              else if (provider.key === "confluence") setAddingConfluence((v) => !v);
             }}
             className={`group flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all ${
               provider.status === "soon"
@@ -266,6 +302,66 @@ function Connectors() {
           <Button variant="primary" small type="submit" disabled={!name.trim() || !path.trim()}>
             Save
           </Button>
+        </form>
+      )}
+
+      {addingConfluence && (
+        <form
+          onSubmit={createConfluence}
+          className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-subtle px-3 py-2.5"
+        >
+          <input
+            value={confluenceName}
+            onChange={(e) => setConfluenceName(e.target.value)}
+            placeholder="name, e.g. eng-wiki"
+            required
+            className="w-[130px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 text-[12.5px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceUrl}
+            onChange={(e) => setConfluenceUrl(e.target.value)}
+            placeholder="https://yourorg.atlassian.net/wiki"
+            required
+            className="min-w-[210px] flex-1 rounded-lg border border-line-strong bg-canvas px-3 py-1.5 font-mono text-[12px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceEmail}
+            onChange={(e) => setConfluenceEmail(e.target.value)}
+            placeholder="you@company.com"
+            type="email"
+            required
+            className="w-[170px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 text-[12.5px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceToken}
+            onChange={(e) => setConfluenceToken(e.target.value)}
+            placeholder="API token (id.atlassian.com)"
+            type="password"
+            required
+            className="w-[190px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 font-mono text-[12px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <input
+            value={confluenceSpaces}
+            onChange={(e) => setConfluenceSpaces(e.target.value)}
+            placeholder="spaces: ENG, HR (empty = all)"
+            className="w-[180px] rounded-lg border border-line-strong bg-canvas px-3 py-1.5 font-mono text-[12px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          />
+          <Button
+            variant="primary"
+            small
+            type="submit"
+            disabled={
+              !confluenceName.trim() ||
+              !confluenceUrl.trim() ||
+              !confluenceEmail.trim() ||
+              !confluenceToken
+            }
+          >
+            Save
+          </Button>
+          <span className="w-full font-mono text-[10.5px] text-ink-3">
+            The token is stored encrypted and never shown again.
+          </span>
         </form>
       )}
 
