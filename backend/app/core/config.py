@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     # Google Drive click-to-connect (OAuth client with drive.readonly scope).
     gdrive_client_id: str | None = None
     gdrive_client_secret: SecretStr | None = None
+    # Notion click-to-connect (public integration credentials).
+    notion_client_id: str | None = None
+    notion_client_secret: SecretStr | None = None
     # Directory of the built web app (Next.js static export). When unset, the
     # repo-relative frontend/out is used if present; the console is the fallback.
     frontend_dist: str | None = None

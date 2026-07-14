@@ -10,21 +10,20 @@ same checksum-deduplicated ingestion as every other source.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
-import jwt
 
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.exceptions import AuthenticationError, ServiceUnavailableError
+from app.services.connectors import oauth_state
 
 _AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 _TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"  # noqa: S105 - URL, not a secret
 _API = "https://www.googleapis.com/drive/v3"
 _SCOPE = "https://www.googleapis.com/auth/drive.readonly"
-_STATE_TTL_SECONDS = 600
+_STATE_KIND = "gdrive-connect"
 
 # Google-native formats export to Office equivalents our parsers understand.
 _EXPORTS = {
@@ -65,29 +64,11 @@ def redirect_uri() -> str:
 
 
 def make_state(connector_id: uuid.UUID) -> str:
-    now = datetime.now(timezone.utc)
-    return jwt.encode(
-        {
-            "type": "gdrive-connect",
-            "connector_id": str(connector_id),
-            "iat": now,
-            "exp": now + timedelta(seconds=_STATE_TTL_SECONDS),
-        },
-        settings.secret_key.get_secret_value(),
-        algorithm=settings.jwt_algorithm,
-    )
+    return oauth_state.make_state(_STATE_KIND, connector_id)
 
 
 def read_state(state: str) -> uuid.UUID:
-    try:
-        claims = jwt.decode(
-            state, settings.secret_key.get_secret_value(), algorithms=[settings.jwt_algorithm]
-        )
-    except jwt.PyJWTError as exc:
-        raise AuthenticationError("Invalid or expired connect state.") from exc
-    if claims.get("type") != "gdrive-connect":
-        raise AuthenticationError("Invalid connect state.")
-    return uuid.UUID(str(claims["connector_id"]))
+    return oauth_state.read_state(_STATE_KIND, state)
 
 
 def authorization_url(connector_id: uuid.UUID) -> str:
