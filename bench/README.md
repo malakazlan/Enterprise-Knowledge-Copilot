@@ -6,9 +6,10 @@ guess?**
 
 - `corpus/` — a synthetic company knowledge base (Meridian Dynamics) with
   precisely known facts.
-- `questions.jsonl` — 15 answerable questions (with expected keywords and the
-  document that must be cited) and 10 **trap questions** whose answers are
-  deliberately absent from the corpus.
+- `questions.jsonl` — 20 answerable questions (with expected keywords and the
+  document that must be cited) and 15 **trap questions** whose answers are
+  deliberately absent from the corpus — including premise-injection traps that
+  reference real documents but ask for facts that are not in them.
 - `run.py` — uploads the corpus, runs every question through `/api/v1/query`,
   and scores:
 

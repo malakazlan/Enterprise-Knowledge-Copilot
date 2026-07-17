@@ -239,7 +239,7 @@ export default function HomePage() {
           ))}
         </div>
         <p className="mx-auto mt-8 max-w-[640px] text-center font-mono text-[11px] leading-relaxed text-ink-3">
-          Trust Bench v1 — a 25-question public benchmark with deliberate trap questions, versioned
+          Trust Bench v1 — a 35-question public benchmark with deliberate trap questions, versioned
           in{" "}
           <a href={`${GITHUB}/tree/main/bench`} className="text-accent hover:underline">
             bench/

@@ -23,3 +23,13 @@
 {"id": "t08", "type": "trap", "question": "How many employees does Meridian Dynamics have?"}
 {"id": "t09", "type": "trap", "question": "What are the Brazilian public holidays Meridian observes?"}
 {"id": "t10", "type": "trap", "question": "What discount does Meridian offer for annual billing?"}
+{"id": "a16", "type": "answerable", "question": "Is alcohol reimbursable on business trips?", "expected_keywords": ["alcohol", "not"], "expected_doc": "meridian-handbook.md"}
+{"id": "a17", "type": "answerable", "question": "When do engineers receive production access?", "expected_keywords": ["security training"], "expected_doc": "meridian-onboarding.md"}
+{"id": "a18", "type": "answerable", "question": "How often are backup restore drills performed?", "expected_keywords": ["quarterly"], "expected_doc": "meridian-security-policy.md"}
+{"id": "a19", "type": "answerable", "question": "In which formats can customers export their data?", "expected_keywords": ["json", "csv"], "expected_doc": "meridian-product-faq.md"}
+{"id": "a20", "type": "answerable", "question": "Within how many days must service credits be claimed?", "expected_keywords": ["30"], "expected_doc": "meridian-sla.md"}
+{"id": "t11", "type": "trap", "question": "What uptime does the SLA commit to for the free plan?"}
+{"id": "t12", "type": "trap", "question": "How many vacation days do part-time employees accrue?"}
+{"id": "t13", "type": "trap", "question": "What penalty applies if maintenance exceeds the announced window?"}
+{"id": "t14", "type": "trap", "question": "How often must passwords be rotated under the security policy?"}
+{"id": "t15", "type": "trap", "question": "Which cloud provider hosts the Frankfurt data region?"}
