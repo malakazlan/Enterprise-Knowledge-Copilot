@@ -349,12 +349,16 @@ export default function HomePage() {
       </header>
 
       {/* ——— Hero ——— */}
-      <section className="relative overflow-hidden px-6 pt-20 pb-16 text-center">
+      <section
+        className="relative overflow-hidden px-6 pt-20 pb-16 text-center"
+        style={{ background: "linear-gradient(180deg, var(--accent-subtle) 0%, var(--page) 46%)" }}
+      >
         {/* aurora background */}
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute top-[-10%] left-[15%] h-[380px] w-[380px] rounded-full bg-[#22d3ee]/20 blur-[90px]" style={{ animation: "aurora 18s ease-in-out infinite" }} />
-          <div className="absolute top-[5%] right-[12%] h-[420px] w-[420px] rounded-full bg-accent/20 blur-[100px]" style={{ animation: "aurora 22s ease-in-out infinite reverse" }} />
-          <div className="absolute inset-0 opacity-[0.4] [background-image:linear-gradient(var(--line)_1px,transparent_1px),linear-gradient(90deg,var(--line)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
+          <div className="absolute top-[-8%] left-[10%] h-[440px] w-[440px] rounded-full bg-[#22d3ee]/30 blur-[100px]" style={{ animation: "aurora 18s ease-in-out infinite" }} />
+          <div className="absolute top-[2%] right-[8%] h-[480px] w-[480px] rounded-full bg-accent/25 blur-[110px]" style={{ animation: "aurora 22s ease-in-out infinite reverse" }} />
+          <div className="absolute top-[24%] left-[42%] h-[320px] w-[320px] rounded-full bg-[#5eead4]/20 blur-[90px]" style={{ animation: "aurora 26s ease-in-out infinite" }} />
+          <div className="absolute inset-0 opacity-[0.45] [background-image:linear-gradient(var(--line)_1px,transparent_1px),linear-gradient(90deg,var(--line)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]" />
         </div>
 
         <Reveal>
@@ -368,8 +372,7 @@ export default function HomePage() {
             <span>Open source · Self-hosted</span>
           </p>
           <h1 className="mx-auto mt-4 max-w-[760px] text-[46px] leading-[1.08] font-bold tracking-[-0.03em] max-md:text-[32px]">
-            Context your agents
-            <br className="max-sm:hidden" /> — and your team —{" "}
+            Context your agents and your team{" "}
             <span className="bg-gradient-to-r from-[#06b6d4] via-accent to-[#1e3a8a] bg-clip-text text-transparent">
               can defend.
             </span>
