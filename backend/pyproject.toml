@@ -35,6 +35,7 @@ dependencies = [
     # Auth & security
     "pyjwt>=2.9",
     "pwdlib[argon2]>=0.2",
+    "cryptography>=43",
     # Config & profiles
     "pyyaml>=6.0",
     # Vector store (default production adapter)
