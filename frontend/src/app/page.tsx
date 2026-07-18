@@ -8,6 +8,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   BadgeCheck,
+  Bot,
   Boxes,
   Check,
   Copy,
@@ -28,10 +29,12 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 
 import { getAccessToken } from "@/lib/api";
+import { AgenticHero } from "@/components/agentic-hero";
 import { BrandHero } from "@/components/brand-hero";
 import { LogoMark } from "@/components/logo";
 
@@ -51,10 +54,12 @@ function Reveal({
   children,
   className = "",
   delay = 0,
+  style,
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
+  style?: CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -75,7 +80,7 @@ function Reveal({
     return () => obs.disconnect();
   }, []);
   return (
-    <div ref={ref} className={`reveal ${className}`} style={{ transitionDelay: `${delay}ms` }}>
+    <div ref={ref} className={`reveal ${className}`} style={{ transitionDelay: `${delay}ms`, ...style }}>
       {children}
     </div>
   );
@@ -353,15 +358,26 @@ export default function HomePage() {
         </div>
 
         <Reveal>
-          <p className="font-mono text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">
-            Open source · Apache-2.0 · Self-hosted
+          <p className="inline-flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 font-mono text-[11px] font-semibold tracking-[0.16em] text-accent uppercase">
+            <span>For enterprise teams</span>
+            <span className="text-ink-3">&amp;</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-subtle px-2 py-0.5">
+              <Bot size={12} /> AI agents
+            </span>
+            <span className="text-ink-3">·</span>
+            <span>Open source · Self-hosted</span>
           </p>
-          <h1 className="mx-auto mt-4 max-w-[740px] text-[46px] leading-[1.08] font-bold tracking-[-0.03em] max-md:text-[32px]">
-            Answers your organization can defend.
+          <h1 className="mx-auto mt-4 max-w-[760px] text-[46px] leading-[1.08] font-bold tracking-[-0.03em] max-md:text-[32px]">
+            Context your agents
+            <br className="max-sm:hidden" /> — and your team —{" "}
+            <span className="bg-gradient-to-r from-[#06b6d4] via-accent to-[#1e3a8a] bg-clip-text text-transparent">
+              can defend.
+            </span>
           </h1>
-          <p className="mx-auto mt-5 max-w-[560px] text-[16px] leading-relaxed text-ink-2">
-            The trust layer for enterprise knowledge: grounded, cited, confidence-scored answers for
-            your team and your agents. When the evidence isn&rsquo;t there, it declines.
+          <p className="mx-auto mt-5 max-w-[580px] text-[16px] leading-relaxed text-ink-2">
+            The trust layer for enterprise knowledge. Agents ask, Knowledge Copilot grounds the
+            answer in your documents, cites it, scores it, and keeps the context across the task.
+            When the evidence isn&rsquo;t there, it declines.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <a href="#deploy" className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[14px] font-semibold text-white shadow-md transition-all hover:bg-accent-hover active:translate-y-px">
@@ -373,13 +389,16 @@ export default function HomePage() {
           </div>
         </Reveal>
 
-        <Reveal delay={120} className="mt-14">
-          <DemoPanel />
+        <Reveal delay={120} className="mx-auto mt-14 max-w-[920px]">
+          <AgenticHero />
         </Reveal>
       </section>
 
       {/* ——— Trust numbers ——— */}
-      <section className="border-y border-line bg-canvas px-6 py-12">
+      <section
+        className="border-y border-line px-6 py-12"
+        style={{ background: "linear-gradient(180deg, var(--accent-subtle), var(--canvas))" }}
+      >
         <div className="mx-auto grid max-w-[1000px] grid-cols-4 gap-6 text-center max-md:grid-cols-2">
           {STATS.map((stat, i) => (
             <Reveal key={stat.label} delay={i * 80}>
@@ -419,15 +438,34 @@ export default function HomePage() {
         </Reveal>
       </section>
 
-      {/* ——— The cube ——— */}
-      <section className="border-y border-line bg-canvas px-6 py-20">
+      {/* ——— See it decide (grounded vs refuse) ——— */}
+      <section className="px-6 py-20">
+        <Reveal className="mx-auto max-w-[720px] text-center">
+          <h2 className="text-[28px] font-bold tracking-[-0.02em]">It answers — or it admits it can&rsquo;t.</h2>
+          <p className="mx-auto mt-2.5 max-w-[500px] text-[14px] leading-relaxed text-ink-2">
+            The same question, two honest outcomes. Grounded when the evidence is there; a clean
+            refusal when it isn&rsquo;t.
+          </p>
+        </Reveal>
+        <Reveal delay={120} className="mt-10">
+          <DemoPanel />
+        </Reveal>
+      </section>
+
+      {/* ——— The cube (dark anchor) ——— */}
+      <section className="bg-[#0a1327] px-6 py-24">
         <div className="mx-auto flex max-w-[1060px] items-center gap-14 max-lg:flex-col">
           <Reveal className="w-full max-w-[480px] shrink-0">
             <BrandHero className="w-full" />
           </Reveal>
           <Reveal delay={120} className="min-w-0">
-            <h2 className="text-[28px] font-bold tracking-[-0.02em]">One grounded core. Six ways in.</h2>
-            <p className="mt-2.5 max-w-[460px] text-[14px] leading-relaxed text-ink-2">
+            <p className="font-mono text-[11px] font-semibold tracking-[0.16em] text-[#22d3ee] uppercase">
+              The platform
+            </p>
+            <h2 className="mt-3 text-[28px] font-bold tracking-[-0.02em] text-white">
+              One grounded core. Six ways in.
+            </h2>
+            <p className="mt-2.5 max-w-[460px] text-[14px] leading-relaxed text-[#94a3b8]">
               People ask in the app. Agents call the OpenAI-compatible endpoint or the MCP server.
               Everyone gets the same governed, cited knowledge.
             </p>
@@ -441,10 +479,10 @@ export default function HomePage() {
                 ["APIs", "Everything in the UI is a documented REST endpoint"],
               ].map(([name, desc]) => (
                 <li key={name} className="flex items-start gap-2.5">
-                  <BadgeCheck size={15} className="mt-0.5 shrink-0 text-accent" />
+                  <BadgeCheck size={15} className="mt-0.5 shrink-0 text-[#22d3ee]" />
                   <span>
-                    <span className="block text-[13.5px] font-semibold">{name}</span>
-                    <span className="block text-[12.5px] leading-snug text-ink-2">{desc}</span>
+                    <span className="block text-[13.5px] font-semibold text-white">{name}</span>
+                    <span className="block text-[12.5px] leading-snug text-[#94a3b8]">{desc}</span>
                   </span>
                 </li>
               ))}
@@ -526,7 +564,10 @@ export default function HomePage() {
       </section>
 
       {/* ——— Security strip ——— */}
-      <section className="border-y border-line bg-canvas px-6 py-12">
+      <section
+        className="border-y border-line px-6 py-12"
+        style={{ background: "linear-gradient(180deg, var(--canvas), var(--accent-subtle))" }}
+      >
         <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-center gap-x-8 gap-y-4 text-center">
           {SECURITY.map(({ icon: Icon, label }) => (
             <span key={label} className="flex items-center gap-2 text-[13px] font-medium text-ink-2">
@@ -555,7 +596,10 @@ export default function HomePage() {
 
       {/* ——— Final CTA ——— */}
       <section className="px-6 pb-24">
-        <Reveal className="mx-auto max-w-[900px] overflow-hidden rounded-3xl border border-line bg-canvas px-8 py-14 text-center shadow-lg">
+        <Reveal
+          className="mx-auto max-w-[900px] overflow-hidden rounded-3xl border border-accent-border px-8 py-14 text-center shadow-lg"
+          style={{ background: "linear-gradient(135deg, var(--accent-subtle), var(--canvas) 55%, #cffafe)" }}
+        >
           <LogoMark size={44} />
           <h2 className="mt-5 text-[30px] font-bold tracking-[-0.02em]">Give your knowledge a conscience.</h2>
           <p className="mx-auto mt-3 max-w-[480px] text-[14.5px] leading-relaxed text-ink-2">
