@@ -9,7 +9,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)](frontend/package.json)
 
-<img src="assets/architecture.png" alt="Enterprise Knowledge Copilot — architecture: ingestion pipeline, hybrid retrieval and reranking, grounded generation with confidence scoring, agent context layer, integrations, and human-in-the-loop governance" width="100%">
+<img src="assets/agentic-hero.png" alt="Enterprise Knowledge Copilot — agents ask, the grounded core retrieves, understands, validates, and responds with access control, citations, and a confidence score, and context is stored to memory and looped back across the task" width="100%">
 
 </div>
 
@@ -23,19 +23,20 @@ Enterprises sit on thousands of PDFs, contracts, SOPs, and manuals — and emplo
 
 **Refuse, on the record.** Below a per-domain confidence threshold, the system flags the answer for human review or refuses outright — and every refusal is logged with its reason. Reviewers approve or reject flagged answers with notes; the audit trail records who asked, what was answered, from which page, and who signed off.
 
-**Ingest what enterprises actually have.** PDFs (with automatic CPU OCR for scans), Word / PowerPoint / Excel, images, Markdown, text. Structure-aware chunking keeps paragraphs intact and stamps every chunk with its section breadcrumb. A folder connector syncs a mounted share or drop directory idempotently — cron it and the corpus stays current.
+**Ingest what enterprises actually have.** PDFs (with automatic CPU OCR for scans), Word / PowerPoint / Excel, images, Markdown, text. Structure-aware chunking keeps paragraphs intact and stamps every chunk with its section breadcrumb. **Click-to-connect sources** from a connector gallery: **Google Drive** and **Notion** via one-click OAuth, **Confluence** via an API token, plus a **server folder** for mounted shares and drop directories. Every sync is checksum-deduplicated and idempotent — schedule it and the corpus stays current.
 
 **Control who sees what.** Collections put an access boundary around documents, enforced *inside* the retrieval pipeline (both search channels), not filtered after the fact. Membership is managed in the UI; revocation takes effect on the next query.
 
 **Be the context layer for your agents.** Agentic workflows don't just ask questions — they consume and maintain context:
+- **OpenAI-compatible endpoint** — point any OpenAI-SDK client at `/v1/chat/completions` (the `model` is a domain profile). Answers come back grounded and cited, with trust signals (`answered`, `confidence`, `citations`, `needs_review`) in an `ekc` extension your workflow can branch on
 - **Context packs** — `POST /context` returns the best N tokens of ranked, deduplicated passages with `[Source: file, p.N]` provenance, ready to inject into any agent's prompt; access control applies at retrieval
-- **Knowledge write-back** — agents deposit what they learn (`POST /knowledge`): small attributed entries that become retrievable with citations within seconds, governed like every other document
-- **Knowledge lifecycle** — entries carry `verify_by` dates; past-due knowledge surfaces as *stale* in the Library and admin stats, so context rot is visible and assignable
-- **MCP server** (`ekc-mcp`) — Claude Desktop/Code or any MCP client gets 11 tools (`ask`, `search`, `get_context`, `write_knowledge`, evals, admin) plus a `setup-copilot` prompt that configures the deployment conversationally
-- **REST API** — headless usage with role-scoped API keys (`X-API-Key`), batch endpoint for pipeline workloads, SSE streaming
+- **Agent memory** — scoped, expiring semantic memory (`remember` / `recall`): each agent keeps facts, episodes, and preferences private to its own scope and recalls them across turns, so context survives the whole task
+- **Knowledge write-back** — agents deposit what they learn (`POST /knowledge`): small attributed entries that become retrievable with citations within seconds, governed like every other document. Entries carry `verify_by` dates; past-due knowledge surfaces as *stale*, so context rot is visible and assignable
+- **MCP server** (`ekc-mcp`) — Claude Desktop/Code or any MCP client gets 13+ tools (`ask`, `search`, `get_context`, `write_knowledge`, `remember`, `recall`, evals, admin) plus a `setup-copilot` prompt that configures the deployment conversationally
+- **REST API** — headless usage with role-scoped API keys (`ekc_…`), batch endpoint for pipeline workloads, SSE streaming
 - **Webhooks** — HMAC-signed pushes on refusals, review flags, resolutions, and ingestion events, with retry + backoff
 
-**Prove the quality.** Golden-question datasets and an evaluation harness (hit rate, MRR, page accuracy, keyword recall, citation accuracy) run against the live pipeline — compare domain profiles A/B before trusting a change.
+**Prove it doesn't hallucinate.** [**Trust Bench**](bench/) is a reproducible, versioned benchmark that asks the question marketing never does: *when the answer isn't in the corpus, does the system refuse or guess?* A synthetic corpus with 20 answerable questions and 15 deliberate **trap questions** (including premise-injection traps) scores grounded-answer rate, citation accuracy, and **false-answer rate**. Run `python bench/run.py` against any deployment. Latest run: **100% grounded, 100% citation accuracy, 0% false answers.** A separate evaluation harness (hit rate, MRR, page accuracy, keyword recall) compares domain profiles A/B before you trust a change.
 
 **Sign in your way.** Email/password (first account becomes admin) or OIDC single sign-on — Microsoft Entra, Google Workspace, Okta, Keycloak — enabled by four environment variables. Rate limiting guards auth (per IP) and query endpoints (per principal).
 
@@ -110,17 +111,31 @@ NOTION_CLIENT_ID=...       NOTION_CLIENT_SECRET=...
 # Confluence & server folders need no env vars — configured in the UI.
 ```
 
-## Connect an agent (MCP)
+## Connect an agent
+
+**Any OpenAI-SDK client** — change one line:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="https://kb.your-company.internal/v1", api_key="ekc_...")
+resp = client.chat.completions.create(
+    model="legal",                                   # a domain profile
+    messages=[{"role": "user", "content": "..."}],
+)
+# resp.ekc -> { answered, confidence, citations, needs_review }
+```
+
+**Claude Desktop / Claude Code (MCP)**:
 
 ```jsonc
-// Claude Desktop / Claude Code MCP config
 {
   "command": "ekc-mcp",
   "env": { "EKC_URL": "https://kb.your-company.internal", "EKC_API_KEY": "ekc_..." }
 }
 ```
 
-Agents get grounded, cited answers with machine-readable trust signals — `answered: false` means the corpus lacks evidence, so workflows can branch to a human instead of acting on a guess.
+Either way, agents get grounded, cited answers with machine-readable trust signals — `answered: false` means the corpus lacks evidence, so workflows can branch to a human instead of acting on a guess.
 
 ## Security posture
 
@@ -129,6 +144,10 @@ Agents get grounded, cited answers with machine-readable trust signals — `answ
 - Frontend ships as a static export served by the API — no Node.js process in production, CSP blocks all external origins, `npm audit` clean
 - Rate limiting on auth and query; OIDC tokens validated against provider JWKS with nonce binding
 - Webhook deliveries HMAC-SHA256 signed
+
+## Architecture
+
+<img src="assets/architecture.png" alt="Enterprise Knowledge Copilot — architecture: ingestion pipeline, hybrid retrieval and reranking, grounded generation with confidence scoring, agent context layer, integrations, and human-in-the-loop governance" width="100%">
 
 ## License
 
