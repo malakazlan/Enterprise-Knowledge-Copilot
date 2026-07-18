@@ -130,6 +130,97 @@ body {
   animation: rise 0.35s cubic-bezier(0.21, 0.61, 0.35, 1) both;
 }
 
+/* Slow drifting aurora blobs for atmospheric section backgrounds. */
+@keyframes aurora {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(6%, -5%) scale(1.18);
+  }
+  66% {
+    transform: translate(-5%, 6%) scale(0.9);
+  }
+}
+
+/* A dot travelling along a pipeline connector (dashoffset march). */
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+/* Sequential glow for pipeline nodes. */
+@keyframes node-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Infinite horizontal marquee (track is duplicated, so -50% loops seamlessly). */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* A glowing dot running along a pipeline connector. */
+@keyframes flow-move {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+.flow-track {
+  position: relative;
+  height: 2px;
+  min-width: 40px;
+  flex: 1;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--line), var(--accent-border));
+}
+.flow-dot {
+  position: absolute;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: flow-move 1.8s linear infinite;
+}
+
+/* Scroll-reveal: hidden until IntersectionObserver adds .in */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.21, 0.61, 0.35, 1);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
