@@ -1,0 +1,76 @@
+# Coolify deployment (Docker Compose build pack).
+# Coolify's own proxy (Traefik) handles domain + HTTPS, so no Caddy and no
+# published host ports. Set the domain on the `api` service in the Coolify UI.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ekc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ekc
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ekc -d ekc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: always
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: always
+    expose:
+      - "8000"
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://ekc:${POSTGRES_PASSWORD}@postgres:5432/ekc
+      REDIS_URL: redis://redis:6379/0
+      RATE_LIMIT_BACKEND: redis
+      VECTOR_STORE_PROVIDER: qdrant
+      QDRANT_URL: http://qdrant:6333
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      EMBEDDER_PROVIDER: ${EMBEDDER_PROVIDER:-fastembed}
+      RERANKER_PROVIDER: ${RERANKER_PROVIDER:-lexical}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-384}
+    volumes:
+      - ekc_storage:/app/storage
+      - ekc_models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:
+  qdrantdata:
+  ekc_storage:
+  ekc_models:
